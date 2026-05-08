@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, Alert,
   Animated, Easing, StatusBar, Dimensions, ScrollView, Image,
@@ -11,21 +11,22 @@ import { activateAbyss, deactivateAbyss, isAbyssActive, onAbyssChange, setAbyssP
 
 const { width, height } = Dimensions.get('window');
 
+// Local assets — copy your 3 images into assets/images/ with these exact filenames
 const AUTO_WALLPAPERS = [
   {
     title: 'One Piece',
-    subtitle: "The Pirate King's Journey",
-    uri: 'https://wallpapercave.com/wp/wp1917848.jpg',
+    subtitle: "The Straw Hat's Grand Voyage",
+    source: require('../../assets/images/wp-onepiece.jpg'),
   },
   {
-    title: 'Naruto',
-    subtitle: 'Believe It — Konoha\'s Hero',
-    uri: 'https://wallpapercave.com/wp/wp1845955.jpg',
+    title: 'Naruto — Madara',
+    subtitle: 'The Uchiha who stood above all',
+    source: require('../../assets/images/wp-naruto.jpg'),
   },
   {
-    title: 'Bleach',
-    subtitle: 'Soul Reaper — Ichigo Kurosaki',
-    uri: 'https://wallpapercave.com/wp/wp2054350.jpg',
+    title: 'Bleach — Aizen',
+    subtitle: 'The God who never needed allies',
+    source: require('../../assets/images/wp-bleach.jpg'),
   },
 ];
 
@@ -91,8 +92,6 @@ export default function AbyssScreen() {
     setSearching(true);
     setShowSearch(true);
     try {
-      // Use Unsplash source - no API key, just pass the query as keywords
-      // Returns random matching image per unique seed
       const results = Array.from({ length: 12 }, (_, i) =>
         `https://source.unsplash.com/600x900/?${encodeURIComponent(searchQuery)}&sig=${i}`
       );
@@ -116,22 +115,19 @@ export default function AbyssScreen() {
     Alert.alert('Password Set ✓', 'Abyss password saved.');
   };
 
-  // ── ACTIVE SCREEN
+  // ── ACTIVE ABYSS SCREEN
   if (active) {
-    const wallUri = mode === 'manual' && selectedUri
-      ? selectedUri
-      : AUTO_WALLPAPERS[autoIndex].uri;
-    const wallTitle = mode === 'manual'
-      ? 'Custom Wallpaper'
-      : AUTO_WALLPAPERS[autoIndex].title;
-    const wallSub = mode === 'auto' ? AUTO_WALLPAPERS[autoIndex].subtitle : null;
+    const current = AUTO_WALLPAPERS[autoIndex];
+    const wallSource = mode === 'manual' && selectedUri ? { uri: selectedUri } : current.source;
+    const wallTitle = mode === 'manual' ? 'Custom Wallpaper' : current.title;
+    const wallSub = mode === 'auto' ? current.subtitle : null;
 
     return (
       <View style={s.abyss}>
         <StatusBar hidden />
         <Animated.Image
-          key={wallUri}
-          source={{ uri: wallUri }}
+          key={autoIndex}
+          source={wallSource}
           style={[s.wallpaper, { opacity: mode === 'auto' ? autoFade : 1 }]}
           resizeMode="cover"
         />
@@ -173,7 +169,7 @@ export default function AbyssScreen() {
   // ── SEARCH RESULTS SCREEN
   if (showSearch) {
     return (
-      <View style={[{ flex: 1, backgroundColor: c.background }]}>
+      <View style={{ flex: 1, backgroundColor: c.background }}>
         <View style={s.libraryHeader}>
           <Pressable onPress={() => setShowSearch(false)} style={s.backBtn}>
             <Ionicons name="chevron-back" size={22} color={c.text} />
@@ -216,30 +212,24 @@ export default function AbyssScreen() {
 
       {/* Mode toggle */}
       <View style={[s.modeRow, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Pressable
-          onPress={() => setMode('auto')}
-          style={[s.modeBtn, mode === 'auto' && { backgroundColor: c.accent }]}
-        >
+        <Pressable onPress={() => setMode('auto')} style={[s.modeBtn, mode === 'auto' && { backgroundColor: c.accent }]}>
           <Ionicons name="sync" size={16} color={mode === 'auto' ? '#fff' : c.mutedText} />
           <Text style={{ color: mode === 'auto' ? '#fff' : c.mutedText, fontWeight: '700', fontSize: 13 }}>Auto</Text>
         </Pressable>
-        <Pressable
-          onPress={() => setMode('manual')}
-          style={[s.modeBtn, mode === 'manual' && { backgroundColor: c.accent }]}
-        >
+        <Pressable onPress={() => setMode('manual')} style={[s.modeBtn, mode === 'manual' && { backgroundColor: c.accent }]}>
           <Ionicons name="hand-left" size={16} color={mode === 'manual' ? '#fff' : c.mutedText} />
           <Text style={{ color: mode === 'manual' ? '#fff' : c.mutedText, fontWeight: '700', fontSize: 13 }}>Manual</Text>
         </Pressable>
       </View>
 
-      {/* AUTO: 3 anime preview cards */}
+      {/* AUTO: 3 local wallpaper preview cards */}
       {mode === 'auto' && (
         <View style={{ gap: 10 }}>
           <Text style={[s.sectionLabel, { color: c.mutedText }]}>CYCLES BETWEEN THESE 3 · EVERY 8S</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
             {AUTO_WALLPAPERS.map((w, i) => (
-              <View key={w.anime} style={s.animeCard}>
-                <Image source={{ uri: w.uri }} style={s.animeCardImg} resizeMode="cover" />
+              <View key={w.title} style={s.animeCard}>
+                <Image source={w.source} style={s.animeCardImg} resizeMode="cover" />
                 <View style={s.animeCardOverlay}>
                   <Text style={s.animeCardTitle}>{w.title}</Text>
                   <Text style={s.animeCardSub}>{w.subtitle}</Text>
@@ -251,10 +241,9 @@ export default function AbyssScreen() {
         </View>
       )}
 
-      {/* MANUAL: Upload or Search */}
+      {/* MANUAL: Camera Roll or Search */}
       {mode === 'manual' && (
         <View style={{ gap: 12 }}>
-          {/* Current selection preview */}
           {selectedUri && (
             <View style={{ gap: 8 }}>
               <Text style={[s.sectionLabel, { color: c.mutedText }]}>SELECTED WALLPAPER</Text>
@@ -266,39 +255,26 @@ export default function AbyssScreen() {
               </View>
             </View>
           )}
-
-          {/* Pick options */}
           <Text style={[s.sectionLabel, { color: c.mutedText }]}>PICK WALLPAPER FROM</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            {/* Camera Roll */}
-            <Pressable
-              onPress={pickFromGallery}
-              style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}
-            >
+            <Pressable onPress={pickFromGallery} style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Ionicons name="images" size={28} color={c.accent} />
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Camera Roll</Text>
-              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>Any photo{"\n"}from your phone</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Any photo\nfrom your phone'}</Text>
             </Pressable>
-
-            {/* Web Search */}
-            <Pressable
-              onPress={() => setShowSearch(true)}
-              style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}
-            >
+            <Pressable onPress={() => setShowSearch(true)} style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Ionicons name="search" size={28} color={c.accent} />
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Search Online</Text>
-              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>Search any{"\n"}image online</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Search any\nimage online'}</Text>
             </Pressable>
           </View>
-
-          {/* Search bar (shows when search is chosen) */}
           <View style={[s.searchRow, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Ionicons name="search" size={16} color={c.mutedText} />
             <TextInput
               style={[s.searchInput, { color: c.text }]}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search wallpapers e.g. 'Dragon Ball', 'Tokyo Night'..."
+              placeholder="e.g. 'Dragon Ball', 'Tokyo Night'..."
               placeholderTextColor={c.mutedText}
               returnKeyType="search"
               onSubmitEditing={searchImages}
@@ -352,7 +328,6 @@ export default function AbyssScreen() {
 }
 
 const THUMB = (width - 8) / 3;
-
 const s = StyleSheet.create({
   container:          { paddingTop: 60, paddingHorizontal: 16, gap: 16, paddingBottom: 40 },
   title:              { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
