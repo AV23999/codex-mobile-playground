@@ -22,7 +22,7 @@ export default function Chats() {
     const invite = createInvite(username, 48);
     try {
       await Share.share({
-        message: `Join me on Nova Chat! Use my invite code: ${invite.code}\n\nOr tap the link: ${invite.link}\n\nExpires in 48 hours. 🔒 End-to-end encrypted.`,
+        message: `Join me on Nova Chat! Use my invite code: ${invite.code}\n\nOr tap the link: ${invite.link}\n\nExpires in 48 hours. \uD83D\uDD12 End-to-end encrypted.`,
         title: 'Invite to Nova Chat',
       });
     } catch (e) {
@@ -39,12 +39,10 @@ export default function Chats() {
           <Text style={[s.title, { color: c.text }]}>Nova Chat</Text>
         </View>
         <View style={s.headerRight}>
-          {/* E2E Lock badge */}
           <View style={[s.e2eBadge, { backgroundColor: c.success + '22', borderColor: c.success }]}>
             <Ionicons name="lock-closed" size={10} color={c.success} />
             <Text style={[s.e2eText, { color: c.success }]}>E2E</Text>
           </View>
-          {/* Invite button */}
           <Pressable onPress={handleInvite} style={[s.inviteBtn, { backgroundColor: c.accent }]}>
             <Ionicons name="person-add" size={14} color="#fff" />
             <Text style={s.inviteBtnText}>Invite</Text>
@@ -55,20 +53,19 @@ export default function Chats() {
       {/* Security banner */}
       <View style={[s.secBanner, { backgroundColor: c.accent + '15', borderColor: c.accent + '40' }]}>
         <Ionicons name="shield-checkmark" size={14} color={c.accent} />
-        <Text style={[s.secText, { color: c.accent }]}>Military-grade AES-256-GCM encryption · Perfect Forward Secrecy</Text>
+        <Text style={[s.secText, { color: c.accent }]}>Military-grade AES-256-GCM encryption \u00b7 Perfect Forward Secrecy</Text>
       </View>
 
       {/* Chat list */}
       <FlatList
         data={chats}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingTop: 8 }}
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(`/chats/${item.id}`)}
             style={[s.row, { backgroundColor: c.surface, borderColor: c.border }]}
           >
-            {/* Avatar */}
             <View style={[s.avatar, { backgroundColor: c.accent + '33' }]}>
               <Text style={[s.avatarText, { color: c.accent }]}>{item.name[0]}</Text>
             </View>

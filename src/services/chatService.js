@@ -1,19 +1,25 @@
+// Guaranteed unique ID — timestamp + random suffix to prevent collisions
+let _msgCounter = 0;
+function uniqueId() {
+  return `msg_${Date.now()}_${++_msgCounter}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
 const mockChats = [
-  { id: '1', name: 'Alice', lastMessage: 'Hey there!', online: true },
-  { id: '2', name: 'Bob', lastMessage: 'See you later', online: false },
-  { id: '3', name: 'Carol', lastMessage: 'Sounds good!', online: true },
+  { id: 'chat_1', name: 'Alice', lastMessage: 'Hey there!', online: true },
+  { id: 'chat_2', name: 'Bob', lastMessage: 'See you later', online: false },
+  { id: 'chat_3', name: 'Carol', lastMessage: 'Sounds good!', online: true },
 ];
 
 const mockMessages = {
-  '1': [
-    { id: 'm1', from: 'Alice', text: 'Hey there!', timestamp: Date.now() - 60000, sent: false },
-    { id: 'm2', from: 'me', text: 'Hi Alice!', timestamp: Date.now() - 30000, sent: true },
+  chat_1: [
+    { id: 'msg_alice_1', from: 'Alice', text: 'Hey there!', timestamp: Date.now() - 60000, sent: false },
+    { id: 'msg_me_1', from: 'me', text: 'Hi Alice!', timestamp: Date.now() - 30000, sent: true },
   ],
-  '2': [
-    { id: 'm3', from: 'Bob', text: 'See you later', timestamp: Date.now() - 120000, sent: false },
+  chat_2: [
+    { id: 'msg_bob_1', from: 'Bob', text: 'See you later', timestamp: Date.now() - 120000, sent: false },
   ],
-  '3': [
-    { id: 'm4', from: 'Carol', text: 'Sounds good!', timestamp: Date.now() - 90000, sent: false },
+  chat_3: [
+    { id: 'msg_carol_1', from: 'Carol', text: 'Sounds good!', timestamp: Date.now() - 90000, sent: false },
   ],
 };
 
@@ -27,7 +33,7 @@ const chatService = {
   },
 
   async sendMessage(chatId, text) {
-    const msg = { id: Date.now().toString(), from: 'me', text, timestamp: Date.now(), sent: true };
+    const msg = { id: uniqueId(), from: 'me', text, timestamp: Date.now(), sent: true };
     if (!mockMessages[chatId]) mockMessages[chatId] = [];
     mockMessages[chatId].push(msg);
     return msg;
