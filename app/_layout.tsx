@@ -7,9 +7,12 @@ export default function RootLayout() {
     <AppProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="auth" />
+        <Stack.Screen name="modal" />
         <Stack.Screen name="(main)" />
-        <Stack.Screen name="chats" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="auth/register" />
+        <Stack.Screen name="chats/[id]" />
       </Stack>
       <StatusBar style="auto" />
     </AppProvider>
