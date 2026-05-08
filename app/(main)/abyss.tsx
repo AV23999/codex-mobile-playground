@@ -1,57 +1,33 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, Alert,
-  Animated, Easing, StatusBar, Dimensions, ActivityIndicator,
-  ScrollView, Image, FlatList,
+  Animated, Easing, StatusBar, Dimensions, ScrollView, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppContext } from '../../src/context/AppContext';
 import { NovaColors } from '../../constants/theme';
 import { activateAbyss, deactivateAbyss, isAbyssActive, onAbyssChange, setAbyssPassword } from '../../src/services/abyssService';
 
 const { width, height } = Dimensions.get('window');
 
-// ─── 3 AUTO wallpapers (specific anime, full-screen fitted) ───────────────────
 const AUTO_WALLPAPERS = [
   {
     title: 'One Piece',
-    subtitle: 'The Pirate King\'s Journey',
-    uri: 'https://nekos.best/api/v2/neko/97b6b662-9697-4a8e-85df-66416a4c1efb.png',
-    // We fetch a real image per anime using the search endpoint
-    anime: 'onepiece',
+    subtitle: "The Pirate King's Journey",
+    uri: 'https://wallpapercave.com/wp/wp1917848.jpg',
   },
   {
     title: 'Naruto',
     subtitle: 'Believe It — Konoha\'s Hero',
-    uri: 'https://nekos.best/api/v2/neko/3a5b3f3c-afd3-487e-918c-5032fa4bb390.png',
-    anime: 'naruto',
+    uri: 'https://wallpapercave.com/wp/wp1845955.jpg',
   },
   {
     title: 'Bleach',
     subtitle: 'Soul Reaper — Ichigo Kurosaki',
-    uri: 'https://nekos.best/api/v2/neko/0572c62b-f03e-48d3-a012-c2ccfd38cfd6.png',
-    anime: 'bleach',
+    uri: 'https://wallpapercave.com/wp/wp2054350.jpg',
   },
 ];
-
-type Wallpaper = { uri: string; title: string; id: string };
-
-async function fetchLibrary(): Promise<Wallpaper[]> {
-  const categories = ['neko', 'waifu', 'shinobu', 'megumin', 'smile', 'blush', 'wave', 'happy', 'dance'];
-  try {
-    const all: Wallpaper[] = [];
-    await Promise.all(categories.map(async (cat) => {
-      const res = await fetch(`https://nekos.best/api/v2/${cat}?amount=12`);
-      const json = await res.json();
-      (json.results || []).forEach((item: any) => {
-        all.push({ uri: item.url, title: cat.charAt(0).toUpperCase() + cat.slice(1), id: item.url });
-      });
-    }));
-    return all.sort(() => Math.random() - 0.5);
-  } catch {
-    return [];
-  }
-}
 
 export default function AbyssScreen() {
   const { themeMode } = useAppContext();
@@ -61,22 +37,19 @@ export default function AbyssScreen() {
   const [unlockInput, setUnlockInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [settingPw, setSettingPw] = useState(false);
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
+  const [selectedUri, setSelectedUri] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
 
-  // auto wallpaper cycling (only 3)
   const [autoIndex, setAutoIndex] = useState(0);
   const autoFade = useRef(new Animated.Value(1)).current;
   const pulse = useRef(new Animated.Value(1)).current;
 
-  // manual selection
-  const [library, setLibrary] = useState<Wallpaper[]>([]);
-  const [loadingLib, setLoadingLib] = useState(false);
-  const [selectedUri, setSelectedUri] = useState<string | null>(null);
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
-
   useEffect(() => onAbyssChange(setActive), []);
 
-  // Auto-cycle 3 wallpapers every 8s
   useEffect(() => {
     if (!active || mode !== 'auto') return;
     const interval = setInterval(() => {
@@ -88,23 +61,47 @@ export default function AbyssScreen() {
     return () => clearInterval(interval);
   }, [active, mode]);
 
-  // Pulse glow
   useEffect(() => {
     if (!active) { pulse.setValue(1); return; }
     Animated.loop(Animated.sequence([
       Animated.timing(pulse, { toValue: 1.18, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 1,    duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ])).start();
   }, [active]);
 
-  const loadLibrary = useCallback(async () => {
-    if (library.length > 0) { setShowLibrary(true); return; }
-    setLoadingLib(true);
-    const data = await fetchLibrary();
-    setLibrary(data);
-    setLoadingLib(false);
-    setShowLibrary(true);
-  }, [library]);
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo access to pick a wallpaper.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setSelectedUri(result.assets[0].uri);
+      setMode('manual');
+    }
+  };
+
+  const searchImages = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setShowSearch(true);
+    try {
+      // Use Unsplash source - no API key, just pass the query as keywords
+      // Returns random matching image per unique seed
+      const results = Array.from({ length: 12 }, (_, i) =>
+        `https://source.unsplash.com/600x900/?${encodeURIComponent(searchQuery)}&sig=${i}`
+      );
+      setSearchResults(results);
+    } catch {
+      Alert.alert('Search failed', 'Check your connection.');
+    }
+    setSearching(false);
+  };
 
   const handleDeactivate = async () => {
     const res = await deactivateAbyss(unlockInput || undefined);
@@ -116,16 +113,16 @@ export default function AbyssScreen() {
     setAbyssPassword(passwordInput);
     setPasswordInput('');
     setSettingPw(false);
-    Alert.alert('Password Set ✓', 'Abyss will require this password or Face ID to unlock.');
+    Alert.alert('Password Set ✓', 'Abyss password saved.');
   };
 
-  // ─── ACTIVE ABYSS SCREEN ────────────────────────────────────────────────────
+  // ── ACTIVE SCREEN
   if (active) {
     const wallUri = mode === 'manual' && selectedUri
       ? selectedUri
       : AUTO_WALLPAPERS[autoIndex].uri;
-    const wallTitle = mode === 'manual' && selectedUri
-      ? (library.find(w => w.uri === selectedUri)?.title ?? 'Custom')
+    const wallTitle = mode === 'manual'
+      ? 'Custom Wallpaper'
       : AUTO_WALLPAPERS[autoIndex].title;
     const wallSub = mode === 'auto' ? AUTO_WALLPAPERS[autoIndex].subtitle : null;
 
@@ -135,7 +132,7 @@ export default function AbyssScreen() {
         <Animated.Image
           key={wallUri}
           source={{ uri: wallUri }}
-          style={[s.wallpaper, mode === 'auto' ? { opacity: autoFade } : { opacity: 1 }]}
+          style={[s.wallpaper, { opacity: mode === 'auto' ? autoFade : 1 }]}
           resizeMode="cover"
         />
         <View style={s.overlay} />
@@ -173,56 +170,49 @@ export default function AbyssScreen() {
     );
   }
 
-  // ─── LIBRARY PICKER MODAL ───────────────────────────────────────────────────
-  if (showLibrary) {
+  // ── SEARCH RESULTS SCREEN
+  if (showSearch) {
     return (
-      <View style={[s.container, { backgroundColor: c.background }]}>
+      <View style={[{ flex: 1, backgroundColor: c.background }]}>
         <View style={s.libraryHeader}>
-          <Pressable onPress={() => setShowLibrary(false)} style={s.backBtn}>
+          <Pressable onPress={() => setShowSearch(false)} style={s.backBtn}>
             <Ionicons name="chevron-back" size={22} color={c.text} />
             <Text style={{ color: c.text, fontSize: 16, fontWeight: '600' }}>Back</Text>
           </Pressable>
-          <Text style={[s.libraryTitle, { color: c.text }]}>Pick Wallpaper</Text>
+          <Text style={[s.libraryTitle, { color: c.text }]}>Results: "{searchQuery}"</Text>
           <View style={{ width: 70 }} />
         </View>
-        {loadingLib ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
-            <ActivityIndicator color={c.accent} size="large" />
-            <Text style={{ color: c.mutedText }}>Fetching anime art...</Text>
+        {searching ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: c.mutedText }}>Searching...</Text>
           </View>
         ) : (
-          <FlatList
-            data={library}
-            numColumns={3}
-            keyExtractor={item => item.id}
-            contentContainerStyle={{ padding: 4, paddingBottom: 40 }}
-            renderItem={({ item }) => {
-              const isSelected = selectedUri === item.uri;
-              return (
-                <Pressable
-                  onPress={() => { setSelectedUri(item.uri); setMode('manual'); setShowLibrary(false); }}
-                  style={[s.thumbWrap, isSelected && { borderColor: c.accent, borderWidth: 3 }]}
-                >
-                  <Image source={{ uri: item.uri }} style={s.thumb} resizeMode="cover" />
-                  {isSelected && (
-                    <View style={s.thumbCheck}>
-                      <Ionicons name="checkmark-circle" size={22} color={c.accent} />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            }}
-          />
+          <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4, paddingBottom: 40 }}>
+            {searchResults.map((uri, i) => (
+              <Pressable
+                key={i}
+                onPress={() => { setSelectedUri(uri); setMode('manual'); setShowSearch(false); }}
+                style={[s.thumbWrap, selectedUri === uri && { borderColor: c.accent, borderWidth: 3 }]}
+              >
+                <Image source={{ uri }} style={s.thumb} resizeMode="cover" />
+                {selectedUri === uri && (
+                  <View style={s.thumbCheck}>
+                    <Ionicons name="checkmark-circle" size={22} color={c.accent} />
+                  </View>
+                )}
+              </Pressable>
+            ))}
+          </ScrollView>
         )}
       </View>
     );
   }
 
-  // ─── MAIN ABYSS SETTINGS ────────────────────────────────────────────────────
+  // ── MAIN SETTINGS
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.background }} contentContainerStyle={s.container}>
       <Text style={[s.title, { color: c.text }]}>Abyss Mode</Text>
-      <Text style={[s.sub, { color: c.mutedText }]}>Blank your screen with anime wallpapers.</Text>
+      <Text style={[s.sub, { color: c.mutedText }]}>Blank your screen with a wallpaper.</Text>
 
       {/* Mode toggle */}
       <View style={[s.modeRow, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -242,7 +232,7 @@ export default function AbyssScreen() {
         </Pressable>
       </View>
 
-      {/* Auto preview — 3 anime cards */}
+      {/* AUTO: 3 anime preview cards */}
       {mode === 'auto' && (
         <View style={{ gap: 10 }}>
           <Text style={[s.sectionLabel, { color: c.mutedText }]}>CYCLES BETWEEN THESE 3 · EVERY 8S</Text>
@@ -261,29 +251,64 @@ export default function AbyssScreen() {
         </View>
       )}
 
-      {/* Manual preview — selected or pick prompt */}
+      {/* MANUAL: Upload or Search */}
       {mode === 'manual' && (
-        <View style={{ gap: 10 }}>
-          <Text style={[s.sectionLabel, { color: c.mutedText }]}>SELECTED WALLPAPER</Text>
-          <Pressable onPress={loadLibrary} style={[s.manualPreview, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {selectedUri ? (
-              <>
+        <View style={{ gap: 12 }}>
+          {/* Current selection preview */}
+          {selectedUri && (
+            <View style={{ gap: 8 }}>
+              <Text style={[s.sectionLabel, { color: c.mutedText }]}>SELECTED WALLPAPER</Text>
+              <View style={[s.manualPreview, { borderColor: c.border }]}>
                 <Image source={{ uri: selectedUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 16, justifyContent: 'flex-end', padding: 14 }]}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
-                    {library.find(w => w.uri === selectedUri)?.title ?? 'Anime'}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>Tap to change</Text>
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16, justifyContent: 'flex-end', padding: 14 }]}>
+                  <Text style={{ color: '#fff', fontSize: 12, opacity: 0.7 }}>Tap buttons below to change</Text>
                 </View>
-              </>
-            ) : (
-              <View style={{ alignItems: 'center', gap: 8 }}>
-                <Ionicons name="images-outline" size={36} color={c.mutedText} />
-                <Text style={{ color: c.mutedText, fontSize: 14, fontWeight: '600' }}>Tap to browse wallpapers</Text>
-                <Text style={{ color: c.mutedText, fontSize: 11 }}>{library.length > 0 ? `${library.length} images loaded` : 'Fetches from nekos.best'}</Text>
               </View>
+            </View>
+          )}
+
+          {/* Pick options */}
+          <Text style={[s.sectionLabel, { color: c.mutedText }]}>PICK WALLPAPER FROM</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Camera Roll */}
+            <Pressable
+              onPress={pickFromGallery}
+              style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}
+            >
+              <Ionicons name="images" size={28} color={c.accent} />
+              <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Camera Roll</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>Any photo{"\n"}from your phone</Text>
+            </Pressable>
+
+            {/* Web Search */}
+            <Pressable
+              onPress={() => setShowSearch(true)}
+              style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}
+            >
+              <Ionicons name="search" size={28} color={c.accent} />
+              <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Search Online</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>Search any{"\n"}image online</Text>
+            </Pressable>
+          </View>
+
+          {/* Search bar (shows when search is chosen) */}
+          <View style={[s.searchRow, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Ionicons name="search" size={16} color={c.mutedText} />
+            <TextInput
+              style={[s.searchInput, { color: c.text }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search wallpapers e.g. 'Dragon Ball', 'Tokyo Night'..."
+              placeholderTextColor={c.mutedText}
+              returnKeyType="search"
+              onSubmitEditing={searchImages}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={searchImages} style={[s.searchGoBtn, { backgroundColor: c.accent }]}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Go</Text>
+              </Pressable>
             )}
-          </Pressable>
+          </View>
         </View>
       )}
 
@@ -312,7 +337,7 @@ export default function AbyssScreen() {
       <Pressable
         onPress={() => {
           if (mode === 'manual' && !selectedUri) {
-            Alert.alert('No wallpaper selected', 'Browse and pick a wallpaper first.');
+            Alert.alert('No wallpaper selected', 'Pick a wallpaper from Camera Roll or Search first.');
             return;
           }
           activateAbyss();
@@ -329,46 +354,48 @@ export default function AbyssScreen() {
 const THUMB = (width - 8) / 3;
 
 const s = StyleSheet.create({
-  container:        { paddingTop: 60, paddingHorizontal: 16, gap: 16, paddingBottom: 40 },
-  title:            { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  sub:              { fontSize: 14, lineHeight: 20, marginTop: -8 },
-  sectionLabel:     { fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
-  modeRow:          { flexDirection: 'row', borderRadius: 14, borderWidth: 1, padding: 4, gap: 4 },
-  modeBtn:          { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  animeCard:        { width: 160, height: 220, borderRadius: 16, overflow: 'hidden' },
-  animeCardImg:     { width: '100%', height: '100%' },
-  animeCardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end', padding: 12 },
-  animeCardTitle:   { color: '#fff', fontSize: 15, fontWeight: '800' },
-  animeCardSub:     { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 2 },
-  animeCardBadge:   { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  container:          { paddingTop: 60, paddingHorizontal: 16, gap: 16, paddingBottom: 40 },
+  title:              { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  sub:                { fontSize: 14, lineHeight: 20, marginTop: -8 },
+  sectionLabel:       { fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
+  modeRow:            { flexDirection: 'row', borderRadius: 14, borderWidth: 1, padding: 4, gap: 4 },
+  modeBtn:            { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  pickBtn:            { flex: 1, borderWidth: 1, borderRadius: 16, padding: 16, alignItems: 'center' },
+  searchRow:          { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
+  searchInput:        { flex: 1, fontSize: 14, paddingVertical: 6 },
+  searchGoBtn:        { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  manualPreview:      { height: 200, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  animeCard:          { width: 160, height: 220, borderRadius: 16, overflow: 'hidden' },
+  animeCardImg:       { width: '100%', height: '100%' },
+  animeCardOverlay:   { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end', padding: 12 },
+  animeCardTitle:     { color: '#fff', fontSize: 15, fontWeight: '800' },
+  animeCardSub:       { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 2 },
+  animeCardBadge:     { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   animeCardBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  manualPreview:    { height: 200, borderRadius: 16, borderWidth: 1, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  pwCard:           { borderRadius: 14, borderWidth: 1, padding: 14 },
-  pwRow:            { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pwInput:          { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15 },
-  pwSetBtn:         { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
-  activateBtn:      { backgroundColor: '#05070f', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18 },
-  // active abyss
-  abyss:            { flex: 1, backgroundColor: '#000' },
-  wallpaper:        { position: 'absolute', width, height },
-  overlay:          { position: 'absolute', width, height, backgroundColor: 'rgba(0,0,0,0.38)' },
-  glow:             { position: 'absolute', top: height * 0.28, left: width / 2 - 130, width: 260, height: 260, borderRadius: 130, backgroundColor: '#7c3aed', opacity: 0.12 },
-  abyssInner:       { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 36 },
-  abyssLabel:       { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: '800', letterSpacing: 6, marginTop: 8 },
-  animeTitle:       { color: 'rgba(255,255,255,0.85)', fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 2 },
-  animeSub:         { color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center', marginTop: -4 },
-  wallpaperCount:   { color: 'rgba(255,255,255,0.3)', fontSize: 11, letterSpacing: 1 },
-  unlockRow:        { flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 },
-  unlockInput:      { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  unlockBtn:        { backgroundColor: 'rgba(255,255,255,0.12)', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  orText:           { color: 'rgba(255,255,255,0.2)', fontSize: 12, marginVertical: 2 },
-  bioBtn:           { alignItems: 'center', gap: 8, padding: 12 },
-  bioText:          { color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-  // library
-  libraryHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12 },
-  libraryTitle:     { fontSize: 17, fontWeight: '700' },
-  backBtn:          { flexDirection: 'row', alignItems: 'center', gap: 4, width: 70 },
-  thumbWrap:        { width: THUMB, height: THUMB * 1.4, margin: 2, borderRadius: 10, overflow: 'hidden', borderWidth: 0, borderColor: 'transparent' },
-  thumb:            { width: '100%', height: '100%' },
-  thumbCheck:       { position: 'absolute', top: 4, right: 4 },
+  pwCard:             { borderRadius: 14, borderWidth: 1, padding: 14 },
+  pwRow:              { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pwInput:            { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15 },
+  pwSetBtn:           { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  activateBtn:        { backgroundColor: '#05070f', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18 },
+  abyss:              { flex: 1, backgroundColor: '#000' },
+  wallpaper:          { position: 'absolute', width, height },
+  overlay:            { position: 'absolute', width, height, backgroundColor: 'rgba(0,0,0,0.38)' },
+  glow:               { position: 'absolute', top: height * 0.28, left: width / 2 - 130, width: 260, height: 260, borderRadius: 130, backgroundColor: '#7c3aed', opacity: 0.12 },
+  abyssInner:         { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 36 },
+  abyssLabel:         { color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: '800', letterSpacing: 6, marginTop: 8 },
+  animeTitle:         { color: 'rgba(255,255,255,0.85)', fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 2 },
+  animeSub:           { color: 'rgba(255,255,255,0.45)', fontSize: 13, textAlign: 'center', marginTop: -4 },
+  wallpaperCount:     { color: 'rgba(255,255,255,0.3)', fontSize: 11, letterSpacing: 1 },
+  unlockRow:          { flexDirection: 'row', gap: 10, width: '100%', marginTop: 16 },
+  unlockInput:        { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  unlockBtn:          { backgroundColor: 'rgba(255,255,255,0.12)', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  orText:             { color: 'rgba(255,255,255,0.2)', fontSize: 12, marginVertical: 2 },
+  bioBtn:             { alignItems: 'center', gap: 8, padding: 12 },
+  bioText:            { color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+  libraryHeader:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12 },
+  libraryTitle:       { fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
+  backBtn:            { flexDirection: 'row', alignItems: 'center', gap: 4, width: 70 },
+  thumbWrap:          { width: THUMB, height: THUMB * 1.4, margin: 2, borderRadius: 10, overflow: 'hidden', borderWidth: 0, borderColor: 'transparent' },
+  thumb:              { width: '100%', height: '100%' },
+  thumbCheck:         { position: 'absolute', top: 4, right: 4 },
 });
