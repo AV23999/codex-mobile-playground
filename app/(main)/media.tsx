@@ -6,16 +6,16 @@ import { NovaColors } from '../../constants/theme';
 import { hasFeature } from '../../src/services/premiumService';
 
 const SPOTIFY_TRACKS = [
-  { id: '1', title: 'Blinding Lights', artist: 'The Weeknd', cover: 'https://picsum.photos/seed/weeknd1/60/60', duration: '3:22' },
-  { id: '2', title: 'As It Was', artist: 'Harry Styles', cover: 'https://picsum.photos/seed/harry1/60/60', duration: '2:37' },
-  { id: '3', title: 'Flowers', artist: 'Miley Cyrus', cover: 'https://picsum.photos/seed/miley1/60/60', duration: '3:21' },
-  { id: '4', title: 'Anti-Hero', artist: 'Taylor Swift', cover: 'https://picsum.photos/seed/tswift1/60/60', duration: '3:20' },
+  { id: 'sp_1', title: 'Blinding Lights', artist: 'The Weeknd', cover: 'https://picsum.photos/seed/weeknd1/60/60', duration: '3:22' },
+  { id: 'sp_2', title: 'As It Was', artist: 'Harry Styles', cover: 'https://picsum.photos/seed/harry1/60/60', duration: '2:37' },
+  { id: 'sp_3', title: 'Flowers', artist: 'Miley Cyrus', cover: 'https://picsum.photos/seed/miley1/60/60', duration: '3:21' },
+  { id: 'sp_4', title: 'Anti-Hero', artist: 'Taylor Swift', cover: 'https://picsum.photos/seed/tswift1/60/60', duration: '3:20' },
 ];
 
 const YOUTUBE_VIDEOS = [
-  { id: '1', title: 'Lo-Fi Beats to Study/Relax', channel: 'ChilledCow', thumb: 'https://picsum.photos/seed/lofi1/400/220', views: '102M', url: 'https://youtube.com' },
-  { id: '2', title: 'React Native Full Course 2026', channel: 'Traversy Media', thumb: 'https://picsum.photos/seed/rnative1/400/220', views: '1.2M', url: 'https://youtube.com' },
-  { id: '3', title: 'Midnight Rain — Live Performance', channel: 'Taylor Swift', thumb: 'https://picsum.photos/seed/swiftlive1/400/220', views: '45M', url: 'https://youtube.com' },
+  { id: 'yt_1', title: 'Lo-Fi Beats to Study/Relax', channel: 'ChilledCow', thumb: 'https://picsum.photos/seed/lofi1/400/220', views: '102M', url: 'https://youtube.com' },
+  { id: 'yt_2', title: 'React Native Full Course 2026', channel: 'Traversy Media', thumb: 'https://picsum.photos/seed/rnative1/400/220', views: '1.2M', url: 'https://youtube.com' },
+  { id: 'yt_3', title: 'Midnight Rain — Live Performance', channel: 'Taylor Swift', thumb: 'https://picsum.photos/seed/swiftlive1/400/220', views: '45M', url: 'https://youtube.com' },
 ];
 
 export default function Media() {
@@ -43,7 +43,7 @@ export default function Media() {
 
       <View style={[s.tabs, { backgroundColor: c.surface, borderColor: c.border }]}>
         {(['spotify', 'youtube'] as const).map(t => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[s.tab, tab === t && { backgroundColor: c.accent }]}>
+          <Pressable key={`tab_${t}`} onPress={() => setTab(t)} style={[s.tab, tab === t && { backgroundColor: c.accent }]}>
             <Ionicons name={t === 'spotify' ? 'musical-notes' : 'logo-youtube'} size={16} color={tab === t ? '#fff' : c.mutedText} />
             <Text style={[s.tabText, { color: tab === t ? '#fff' : c.mutedText }]}>{t === 'spotify' ? 'Spotify' : 'YouTube'}</Text>
           </Pressable>
@@ -60,7 +60,11 @@ export default function Media() {
               <Text style={[{ fontSize: 15, fontWeight: '700' }, { color: c.text }]}>Spotify</Text>
               <Text style={[{ fontSize: 12, marginTop: 2 }, { color: c.mutedText }]}>Share what you're listening to in chat</Text>
             </View>
-            {spotifyLocked && <View style={[s.lockPill, { backgroundColor: c.accent + '20', borderColor: c.accent }]}><Text style={{ color: c.accent, fontSize: 10, fontWeight: '800' }}>PLUS</Text></View>}
+            {spotifyLocked && (
+              <View style={[s.lockPill, { backgroundColor: c.accent + '20', borderColor: c.accent }]}>
+                <Text style={{ color: c.accent, fontSize: 10, fontWeight: '800' }}>PLUS</Text>
+              </View>
+            )}
           </View>
           {SPOTIFY_TRACKS.map(track => (
             <Pressable key={track.id} onPress={() => onSpotify(track)} style={[s.trackRow, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -88,12 +92,20 @@ export default function Media() {
               <Text style={[{ fontSize: 15, fontWeight: '700' }, { color: c.text }]}>YouTube</Text>
               <Text style={[{ fontSize: 12, marginTop: 2 }, { color: c.mutedText }]}>Share & watch videos directly in chat</Text>
             </View>
-            {youtubeLocked && <View style={[s.lockPill, { backgroundColor: c.accent + '20', borderColor: c.accent }]}><Text style={{ color: c.accent, fontSize: 10, fontWeight: '800' }}>PLUS</Text></View>}
+            {youtubeLocked && (
+              <View style={[s.lockPill, { backgroundColor: c.accent + '20', borderColor: c.accent }]}>
+                <Text style={{ color: c.accent, fontSize: 10, fontWeight: '800' }}>PLUS</Text>
+              </View>
+            )}
           </View>
           {YOUTUBE_VIDEOS.map(video => (
             <Pressable key={video.id} onPress={() => onYoutube(video)} style={[s.videoCard, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Image source={{ uri: video.thumb }} style={s.videoThumb} resizeMode="cover" />
-              {youtubeLocked && <View style={s.vidLock}><Ionicons name="lock-closed" size={16} color="#fff" /></View>}
+              {youtubeLocked && (
+                <View style={s.vidLock}>
+                  <Ionicons name="lock-closed" size={16} color="#fff" />
+                </View>
+              )}
               <View style={{ padding: 12, gap: 4 }}>
                 <Text style={[{ fontSize: 14, fontWeight: '600', lineHeight: 20 }, { color: c.text }]} numberOfLines={2}>{video.title}</Text>
                 <Text style={[{ fontSize: 12 }, { color: c.mutedText }]}>{video.channel} · {video.views} views</Text>
