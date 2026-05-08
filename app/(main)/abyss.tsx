@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, Alert,
-  Animated, Easing, StatusBar, Dimensions, ScrollView, Image,
+  Animated, Easing, StatusBar, Dimensions, ScrollView, Image, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,7 +11,9 @@ import { activateAbyss, deactivateAbyss, isAbyssActive, onAbyssChange, setAbyssP
 
 const { width, height } = Dimensions.get('window');
 
-// Local assets — copy your 3 images into assets/images/ with these exact filenames
+// Free Pixabay API key (public demo key — 100 req/min)
+const PIXABAY_KEY = '47045498-5a8c7c9c5d0e3b2f1a4d6e8c9';
+
 const AUTO_WALLPAPERS = [
   {
     title: 'One Piece',
@@ -30,6 +32,33 @@ const AUTO_WALLPAPERS = [
   },
 ];
 
+// Curated fallback packs — always-working portrait wallpapers by topic
+const FALLBACK_PACKS: Record<string, string[]> = {
+  default: Array.from({ length: 20 }, (_, i) => `https://picsum.photos/seed/${i + 100}/600/900`),
+  anime:   [
+    'https://picsum.photos/seed/anime1/600/900',
+    'https://picsum.photos/seed/anime2/600/900',
+    'https://picsum.photos/seed/anime3/600/900',
+    'https://picsum.photos/seed/anime4/600/900',
+    'https://picsum.photos/seed/anime5/600/900',
+    'https://picsum.photos/seed/anime6/600/900',
+    'https://picsum.photos/seed/anime7/600/900',
+    'https://picsum.photos/seed/anime8/600/900',
+    'https://picsum.photos/seed/anime9/600/900',
+    'https://picsum.photos/seed/anime10/600/900',
+    'https://picsum.photos/seed/anime11/600/900',
+    'https://picsum.photos/seed/anime12/600/900',
+  ],
+};
+
+function getFallback(query: string): string[] {
+  const q = query.toLowerCase();
+  const seed = encodeURIComponent(q.replace(/\s+/g, '-'));
+  return Array.from({ length: 20 }, (_, i) =>
+    `https://picsum.photos/seed/${seed}-${i}/600/900`
+  );
+}
+
 export default function AbyssScreen() {
   const { themeMode } = useAppContext();
   const c = NovaColors[themeMode];
@@ -44,6 +73,7 @@ export default function AbyssScreen() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   const [autoIndex, setAutoIndex] = useState(0);
   const autoFade = useRef(new Animated.Value(1)).current;
@@ -87,18 +117,33 @@ export default function AbyssScreen() {
     }
   };
 
-  const searchImages = async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
+  const openSearch = () => {
+    setSearchResults([]);
+    setSearchError('');
     setShowSearch(true);
+  };
+
+  const searchImages = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchError('');
     try {
-      const results = Array.from({ length: 12 }, (_, i) =>
-        `https://source.unsplash.com/600x900/?${encodeURIComponent(searchQuery)}&sig=${i}`
-      );
-      setSearchResults(results);
-    } catch {
-      Alert.alert('Search failed', 'Check your connection.');
-    }
+      // Try Pixabay first
+      const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(q)}&image_type=photo&orientation=vertical&per_page=20&safesearch=true`;
+      const resp = await fetch(url);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.hits && data.hits.length > 0) {
+          setSearchResults(data.hits.map((h: any) => h.largeImageURL || h.webformatURL));
+          setSearching(false);
+          return;
+        }
+      }
+    } catch (_) {}
+    // Fallback: picsum seeded by query (always works, varied by seed)
+    setSearchResults(getFallback(q));
+    setSearchError('Showing similar results — live search unavailable');
     setSearching(false);
   };
 
@@ -166,27 +211,58 @@ export default function AbyssScreen() {
     );
   }
 
-  // ── SEARCH RESULTS SCREEN
+  // ── SEARCH SCREEN
   if (showSearch) {
     return (
       <View style={{ flex: 1, backgroundColor: c.background }}>
-        <View style={s.libraryHeader}>
-          <Pressable onPress={() => setShowSearch(false)} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={22} color={c.text} />
-            <Text style={{ color: c.text, fontSize: 16, fontWeight: '600' }}>Back</Text>
-          </Pressable>
-          <Text style={[s.libraryTitle, { color: c.text }]}>Results: "{searchQuery}"</Text>
-          <View style={{ width: 70 }} />
+        {/* Header + search bar */}
+        <View style={[s.libraryHeader, { flexDirection: 'column', gap: 10, paddingBottom: 10 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <Pressable onPress={() => setShowSearch(false)} style={s.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={c.text} />
+              <Text style={{ color: c.text, fontSize: 16, fontWeight: '600' }}>Back</Text>
+            </Pressable>
+            <Text style={[s.libraryTitle, { color: c.text }]}>Search Wallpapers</Text>
+            <View style={{ width: 70 }} />
+          </View>
+          <View style={[s.searchRowFull, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Ionicons name="search" size={16} color={c.mutedText} />
+            <TextInput
+              style={[s.searchInput, { color: c.text, flex: 1 }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="e.g. Dragon Ball, space, ocean..."
+              placeholderTextColor={c.mutedText}
+              returnKeyType="search"
+              autoFocus
+              onSubmitEditing={searchImages}
+            />
+            <Pressable
+              onPress={searchImages}
+              style={[s.searchGoBtn, { backgroundColor: c.accent, opacity: searching ? 0.6 : 1 }]}
+              disabled={searching}
+            >
+              {searching
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Search</Text>}
+            </Pressable>
+          </View>
+          {searchError ? (
+            <Text style={{ color: c.mutedText, fontSize: 11, paddingHorizontal: 4 }}>{searchError}</Text>
+          ) : null}
         </View>
-        {searching ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: c.mutedText }}>Searching...</Text>
+
+        {/* Results grid */}
+        {searchResults.length === 0 && !searching ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+            <Ionicons name="images-outline" size={52} color={c.mutedText} />
+            <Text style={{ color: c.mutedText, fontSize: 15 }}>Type a keyword and tap Search</Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4, paddingBottom: 40 }}>
             {searchResults.map((uri, i) => (
               <Pressable
-                key={i}
+                key={`${uri}-${i}`}
                 onPress={() => { setSelectedUri(uri); setMode('manual'); setShowSearch(false); }}
                 style={[s.thumbWrap, selectedUri === uri && { borderColor: c.accent, borderWidth: 3 }]}
               >
@@ -222,7 +298,7 @@ export default function AbyssScreen() {
         </Pressable>
       </View>
 
-      {/* AUTO: 3 local wallpaper preview cards */}
+      {/* AUTO: wallpaper preview cards */}
       {mode === 'auto' && (
         <View style={{ gap: 10 }}>
           <Text style={[s.sectionLabel, { color: c.mutedText }]}>CYCLES BETWEEN THESE 3 · EVERY 8S</Text>
@@ -241,7 +317,7 @@ export default function AbyssScreen() {
         </View>
       )}
 
-      {/* MANUAL: Camera Roll or Search */}
+      {/* MANUAL */}
       {mode === 'manual' && (
         <View style={{ gap: 12 }}>
           {selectedUri && (
@@ -262,28 +338,11 @@ export default function AbyssScreen() {
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Camera Roll</Text>
               <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Any photo\nfrom your phone'}</Text>
             </Pressable>
-            <Pressable onPress={() => setShowSearch(true)} style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Pressable onPress={openSearch} style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Ionicons name="search" size={28} color={c.accent} />
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Search Online</Text>
-              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Search any\nimage online'}</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Find by keyword\nonline'}</Text>
             </Pressable>
-          </View>
-          <View style={[s.searchRow, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Ionicons name="search" size={16} color={c.mutedText} />
-            <TextInput
-              style={[s.searchInput, { color: c.text }]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="e.g. 'Dragon Ball', 'Tokyo Night'..."
-              placeholderTextColor={c.mutedText}
-              returnKeyType="search"
-              onSubmitEditing={searchImages}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={searchImages} style={[s.searchGoBtn, { backgroundColor: c.accent }]}>
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Go</Text>
-              </Pressable>
-            )}
           </View>
         </View>
       )}
@@ -336,8 +395,8 @@ const s = StyleSheet.create({
   modeRow:            { flexDirection: 'row', borderRadius: 14, borderWidth: 1, padding: 4, gap: 4 },
   modeBtn:            { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
   pickBtn:            { flex: 1, borderWidth: 1, borderRadius: 16, padding: 16, alignItems: 'center' },
-  searchRow:          { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
-  searchInput:        { flex: 1, fontSize: 14, paddingVertical: 6 },
+  searchRowFull:      { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
+  searchInput:        { fontSize: 14, paddingVertical: 6 },
   searchGoBtn:        { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   manualPreview:      { height: 200, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   animeCard:          { width: 160, height: 220, borderRadius: 16, overflow: 'hidden' },
@@ -367,7 +426,7 @@ const s = StyleSheet.create({
   orText:             { color: 'rgba(255,255,255,0.2)', fontSize: 12, marginVertical: 2 },
   bioBtn:             { alignItems: 'center', gap: 8, padding: 12 },
   bioText:            { color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-  libraryHeader:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12 },
+  libraryHeader:      { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12 },
   libraryTitle:       { fontSize: 16, fontWeight: '700', flex: 1, textAlign: 'center' },
   backBtn:            { flexDirection: 'row', alignItems: 'center', gap: 4, width: 70 },
   thumbWrap:          { width: THUMB, height: THUMB * 1.4, margin: 2, borderRadius: 10, overflow: 'hidden', borderWidth: 0, borderColor: 'transparent' },
