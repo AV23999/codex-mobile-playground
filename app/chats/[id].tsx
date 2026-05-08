@@ -7,6 +7,22 @@ import { NovaColors } from '../../constants/theme';
 import chatService from '../../src/services/chatService';
 import { initiatePayment } from '../../src/services/paymentService';
 
+// Guaranteed unique ID — never reuse timestamp alone
+let _idCounter = 0;
+function uid() {
+  return `local_${Date.now()}_${++_idCounter}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+const CHAT_NAMES: Record<string, string> = {
+  chat_1: 'Alice',
+  chat_2: 'Bob',
+  chat_3: 'Carol',
+  // legacy fallback
+  '1': 'Alice',
+  '2': 'Bob',
+  '3': 'Carol',
+};
+
 export default function ChatDetail() {
   const { id } = useLocalSearchParams();
   const { themeMode, user } = useAppContext();
@@ -17,37 +33,51 @@ export default function ChatDetail() {
   const [showPay, setShowPay] = useState(false);
   const flatRef = useRef<any>(null);
 
-  const chatName = id === '1' ? 'Alice' : id === '2' ? 'Bob' : 'Carol';
+  const chatId = Array.isArray(id) ? id[0] : id;
+  const chatName = CHAT_NAMES[chatId] ?? chatId;
 
   useEffect(() => {
-    chatService.getMessages(id as string).then(setMessages);
+    chatService.getMessages(chatId).then((msgs: any[]) => {
+      // Deduplicate on load — nuclear option
+      const seen = new Set<string>();
+      const deduped = msgs.filter(m => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      });
+      setMessages(deduped);
+    });
   }, []);
 
   const send = async () => {
     if (!text.trim()) return;
-    const msg = await chatService.sendMessage(id as string, text, user?.username || 'me');
-    setMessages(prev => [...prev, msg]);
+    const msg = await chatService.sendMessage(chatId, text, user?.username || 'me');
+    setMessages(prev => {
+      // prevent duplicate if chatService already appended
+      if (prev.some(m => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
     setText('');
     setTimeout(() => flatRef.current?.scrollToEnd(), 100);
   };
 
   const handlePay = async () => {
     const amount = parseFloat(payAmount);
-    if (!amount || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Enter a valid payment amount.');
-      return;
-    }
+    if (!amount || amount <= 0) { Alert.alert('Invalid Amount', 'Enter a valid payment amount.'); return; }
     setShowPay(false);
     const result = await initiatePayment(user?.username || 'me', chatName, amount, 'USD');
     if (result.success) {
       const msg = {
-        id: Date.now().toString(),
+        id: uid(), // ← guaranteed unique, never Date.now() alone
         text: `💸 Sent $${amount.toFixed(2)} via Nova Pay\nTx: ${result.transaction.id}\n🔒 HMAC-signed · Biometric authorized`,
         sender: user?.username || 'me',
         timestamp: new Date().toISOString(),
         isPayment: true,
       };
-      setMessages(prev => [...prev, msg]);
+      setMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
       Alert.alert('Payment Sent! ✅', `$${amount.toFixed(2)} sent to ${chatName}\nTransaction ID: ${result.transaction.id}`);
     } else {
       Alert.alert('Payment Failed', result.reason);
@@ -87,11 +117,8 @@ export default function ChatDetail() {
             <Text style={[s.paySymbol, { color: c.text }]}>$</Text>
             <TextInput
               style={[s.payInput, { color: c.text, borderColor: c.border, backgroundColor: c.background }]}
-              value={payAmount}
-              onChangeText={setPayAmount}
-              keyboardType="decimal-pad"
-              placeholder="0.00"
-              placeholderTextColor={c.mutedText}
+              value={payAmount} onChangeText={setPayAmount}
+              keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={c.mutedText}
             />
             <Pressable onPress={handlePay} style={[s.paySend, { backgroundColor: c.accent }]}>
               <Ionicons name="send" size={16} color="#fff" />
@@ -104,25 +131,21 @@ export default function ChatDetail() {
       <FlatList
         ref={flatRef}
         data={messages}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={{ padding: 16, gap: 8 }}
         onContentSizeChange={() => flatRef.current?.scrollToEnd()}
         renderItem={({ item }) => {
-          const isMe = item.sender === (user?.username || 'me');
+          const isMe = item.sender === (user?.username || 'me') || item.from === 'me';
           return (
             <View style={[s.msgWrap, isMe ? s.msgRight : s.msgLeft]}>
               <View style={[
                 s.bubble,
-                isMe
-                  ? { backgroundColor: c.accent }
-                  : { backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 },
+                isMe ? { backgroundColor: c.accent } : { backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 },
                 item.isPayment && { backgroundColor: c.success + '22', borderColor: c.success, borderWidth: 1 },
               ]}>
-                <Text style={[
-                  s.msgText,
-                  { color: isMe ? '#fff' : c.text },
-                  item.isPayment && { color: c.success },
-                ]}>{item.text}</Text>
+                <Text style={[s.msgText, { color: isMe ? '#fff' : c.text }, item.isPayment && { color: c.success }]}>
+                  {item.text}
+                </Text>
                 <View style={s.msgMeta}>
                   <Text style={[s.msgTime, { color: isMe ? 'rgba(255,255,255,0.6)' : c.mutedText }]}>
                     {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -139,11 +162,8 @@ export default function ChatDetail() {
       <View style={[s.inputRow, { backgroundColor: c.surface, borderTopColor: c.border }]}>
         <TextInput
           style={[s.input, { color: c.text, backgroundColor: c.background, borderColor: c.border }]}
-          value={text}
-          onChangeText={setText}
-          placeholder="Message..."
-          placeholderTextColor={c.mutedText}
-          multiline
+          value={text} onChangeText={setText}
+          placeholder="Message..." placeholderTextColor={c.mutedText} multiline
         />
         <Pressable onPress={send} style={[s.sendBtn, { backgroundColor: c.accent }]}>
           <Ionicons name="send" size={18} color="#fff" />
