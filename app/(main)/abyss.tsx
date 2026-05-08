@@ -19,8 +19,8 @@ export default function AbyssScreen() {
   useEffect(() => {
     if (active) {
       Animated.loop(Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.12, duration: 2000, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.sine), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.12, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])).start();
     } else { pulse.setValue(1); }
   }, [active]);
@@ -73,7 +73,7 @@ export default function AbyssScreen() {
   return (
     <View style={[s.container, { backgroundColor: c.background }]}>
       <Text style={[s.title, { color: c.text }]}>Abyss Mode</Text>
-      <Text style={[s.sub, { color: c.mutedText }]}>{'Blank your screen instantly.\nUnlock with Face ID or password.'}</Text>
+      <Text style={[s.sub, { color: c.mutedText }]}>{"Blank your screen instantly.\nUnlock with Face ID or password."}</Text>
 
       <View style={[s.preview, { backgroundColor: '#05070f', borderColor: c.border }]}>
         <Ionicons name="eye-off" size={40} color="rgba(255,255,255,0.15)" />
@@ -82,11 +82,11 @@ export default function AbyssScreen() {
 
       <View style={[s.infoCard, { backgroundColor: c.surface, borderColor: c.border }]}>
         {[
-          ['eye-off', 'Hides all content instantly'],
-          ['finger-print', 'Unlock with Face ID / Touch ID'],
-          ['key', 'Fallback password unlock'],
-          ['notifications-off', 'Suppresses notification previews'],
-          ['shield-checkmark', 'Logged to security audit trail'],
+          ['eye-off',               'Hides all content instantly'],
+          ['finger-print',          'Unlock with Face ID / Touch ID'],
+          ['key',                   'Fallback password unlock'],
+          ['notifications-off',     'Suppresses notification previews'],
+          ['shield-checkmark',      'Logged to security audit trail'],
         ].map(([icon, label]) => (
           <View key={label} style={s.infoRow}>
             <Ionicons name={icon as any} size={18} color={c.accent} />
@@ -117,7 +117,6 @@ export default function AbyssScreen() {
       </View>
 
       <Pressable onPress={() => activateAbyss()} style={s.activateBtn}>
-        <View style={StyleSheet.absoluteFillObject} />
         <Ionicons name="eye-off" size={22} color="#fff" />
         <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>Activate Abyss Mode</Text>
       </Pressable>
@@ -137,7 +136,6 @@ const s = StyleSheet.create({
   pwInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15 },
   pwSetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   activateBtn: { backgroundColor: '#05070f', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18, marginBottom: 40 },
-  // Abyss overlay
   abyss: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: '#4f8ef7', opacity: 0.04 },
   abyssInner: { alignItems: 'center', gap: 14, paddingHorizontal: 36 },
