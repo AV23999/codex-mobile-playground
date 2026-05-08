@@ -11,52 +11,21 @@ import { activateAbyss, deactivateAbyss, isAbyssActive, onAbyssChange, setAbyssP
 
 const { width, height } = Dimensions.get('window');
 
-// Free Pixabay API key (public demo key — 100 req/min)
-const PIXABAY_KEY = '47045498-5a8c7c9c5d0e3b2f1a4d6e8c9';
-
 const AUTO_WALLPAPERS = [
-  {
-    title: 'One Piece',
-    subtitle: "The Straw Hat's Grand Voyage",
-    source: require('../../assets/images/wp-onepiece.jpg'),
-  },
-  {
-    title: 'Naruto — Madara',
-    subtitle: 'The Uchiha who stood above all',
-    source: require('../../assets/images/wp-naruto.jpg'),
-  },
-  {
-    title: 'Bleach — Aizen',
-    subtitle: 'The God who never needed allies',
-    source: require('../../assets/images/wp-bleach.jpg'),
-  },
+  { title: 'One Piece', subtitle: "The Straw Hat's Grand Voyage", source: require('../../assets/images/wp-onepiece.jpg') },
+  { title: 'Naruto — Madara', subtitle: 'The Uchiha who stood above all', source: require('../../assets/images/wp-naruto.jpg') },
+  { title: 'Bleach — Aizen', subtitle: 'The God who never needed allies', source: require('../../assets/images/wp-bleach.jpg') },
 ];
 
-// Curated fallback packs — always-working portrait wallpapers by topic
-const FALLBACK_PACKS: Record<string, string[]> = {
-  default: Array.from({ length: 20 }, (_, i) => `https://picsum.photos/seed/${i + 100}/600/900`),
-  anime:   [
-    'https://picsum.photos/seed/anime1/600/900',
-    'https://picsum.photos/seed/anime2/600/900',
-    'https://picsum.photos/seed/anime3/600/900',
-    'https://picsum.photos/seed/anime4/600/900',
-    'https://picsum.photos/seed/anime5/600/900',
-    'https://picsum.photos/seed/anime6/600/900',
-    'https://picsum.photos/seed/anime7/600/900',
-    'https://picsum.photos/seed/anime8/600/900',
-    'https://picsum.photos/seed/anime9/600/900',
-    'https://picsum.photos/seed/anime10/600/900',
-    'https://picsum.photos/seed/anime11/600/900',
-    'https://picsum.photos/seed/anime12/600/900',
-  ],
-};
-
-function getFallback(query: string): string[] {
-  const q = query.toLowerCase();
-  const seed = encodeURIComponent(q.replace(/\s+/g, '-'));
-  return Array.from({ length: 20 }, (_, i) =>
-    `https://picsum.photos/seed/${seed}-${i}/600/900`
-  );
+// Wallhaven — free, no API key needed for SFW wallpapers, returns real matching results
+async function searchWallhaven(query: string): Promise<string[]> {
+  const url =
+    `https://wallhaven.cc/api/v1/search?q=${encodeURIComponent(query)}&categories=110&purity=100&sorting=relevance&order=desc&per_page=24`;
+  const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!resp.ok) throw new Error('wallhaven failed');
+  const data = await resp.json();
+  // Wallhaven returns full-res + thumb URLs; use path (full image) for quality
+  return (data.data as any[]).map((w: any) => w.path);
 }
 
 export default function AbyssScreen() {
@@ -71,7 +40,7 @@ export default function AbyssScreen() {
   const [selectedUri, setSelectedUri] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<{ uri: string; thumb: string }[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchError, setSearchError] = useState('');
 
@@ -102,48 +71,37 @@ export default function AbyssScreen() {
 
   const pickFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo access to pick a wallpaper.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-      allowsEditing: false,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setSelectedUri(result.assets[0].uri);
-      setMode('manual');
-    }
+    if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo access to pick a wallpaper.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1, allowsEditing: false });
+    if (!result.canceled && result.assets[0]) { setSelectedUri(result.assets[0].uri); setMode('manual'); }
   };
 
-  const openSearch = () => {
-    setSearchResults([]);
-    setSearchError('');
-    setShowSearch(true);
-  };
+  const openSearch = () => { setSearchResults([]); setSearchError(''); setShowSearch(true); };
 
-  const searchImages = async () => {
+  const doSearch = async () => {
     const q = searchQuery.trim();
     if (!q) return;
     setSearching(true);
     setSearchError('');
     try {
-      // Try Pixabay first
-      const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(q)}&image_type=photo&orientation=vertical&per_page=20&safesearch=true`;
-      const resp = await fetch(url);
+      const url =
+        `https://wallhaven.cc/api/v1/search?q=${encodeURIComponent(q)}&categories=110&purity=100&sorting=relevance&order=desc&per_page=24`;
+      const resp = await fetch(url, { headers: { Accept: 'application/json' } });
       if (resp.ok) {
         const data = await resp.json();
-        if (data.hits && data.hits.length > 0) {
-          setSearchResults(data.hits.map((h: any) => h.largeImageURL || h.webformatURL));
+        if (data.data && data.data.length > 0) {
+          setSearchResults(data.data.map((w: any) => ({ uri: w.path, thumb: w.thumbs?.small || w.path })));
           setSearching(false);
           return;
         }
+        setSearchError('No results found. Try a different keyword.');
+      } else {
+        setSearchError('Search unavailable right now. Try again.');
       }
-    } catch (_) {}
-    // Fallback: picsum seeded by query (always works, varied by seed)
-    setSearchResults(getFallback(q));
-    setSearchError('Showing similar results — live search unavailable');
+    } catch (e) {
+      setSearchError('Network error — check your connection.');
+    }
+    setSearchResults([]);
     setSearching(false);
   };
 
@@ -166,16 +124,10 @@ export default function AbyssScreen() {
     const wallSource = mode === 'manual' && selectedUri ? { uri: selectedUri } : current.source;
     const wallTitle = mode === 'manual' ? 'Custom Wallpaper' : current.title;
     const wallSub = mode === 'auto' ? current.subtitle : null;
-
     return (
       <View style={s.abyss}>
         <StatusBar hidden />
-        <Animated.Image
-          key={autoIndex}
-          source={wallSource}
-          style={[s.wallpaper, { opacity: mode === 'auto' ? autoFade : 1 }]}
-          resizeMode="cover"
-        />
+        <Animated.Image key={autoIndex} source={wallSource} style={[s.wallpaper, { opacity: mode === 'auto' ? autoFade : 1 }]} resizeMode="cover" />
         <View style={s.overlay} />
         <Animated.View style={[s.glow, { transform: [{ scale: pulse }] }]} />
         <View style={s.abyssInner}>
@@ -183,23 +135,10 @@ export default function AbyssScreen() {
           <Text style={s.abyssLabel}>ABYSS MODE</Text>
           <Text style={s.animeTitle}>{wallTitle}</Text>
           {wallSub && <Text style={s.animeSub}>{wallSub}</Text>}
-          {mode === 'auto' && (
-            <Text style={s.wallpaperCount}>#{autoIndex + 1} of {AUTO_WALLPAPERS.length} · auto</Text>
-          )}
+          {mode === 'auto' && <Text style={s.wallpaperCount}>#{autoIndex + 1} of {AUTO_WALLPAPERS.length} · auto</Text>}
           <View style={s.unlockRow}>
-            <TextInput
-              style={s.unlockInput}
-              value={unlockInput}
-              onChangeText={setUnlockInput}
-              placeholder="Password..."
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              secureTextEntry
-              autoFocus
-              onSubmitEditing={handleDeactivate}
-            />
-            <Pressable onPress={handleDeactivate} style={s.unlockBtn}>
-              <Ionicons name="lock-open" size={20} color="#fff" />
-            </Pressable>
+            <TextInput style={s.unlockInput} value={unlockInput} onChangeText={setUnlockInput} placeholder="Password..." placeholderTextColor="rgba(255,255,255,0.25)" secureTextEntry autoFocus onSubmitEditing={handleDeactivate} />
+            <Pressable onPress={handleDeactivate} style={s.unlockBtn}><Ionicons name="lock-open" size={20} color="#fff" /></Pressable>
           </View>
           <Text style={s.orText}>— or —</Text>
           <Pressable onPress={() => deactivateAbyss()} style={s.bioBtn}>
@@ -215,7 +154,6 @@ export default function AbyssScreen() {
   if (showSearch) {
     return (
       <View style={{ flex: 1, backgroundColor: c.background }}>
-        {/* Header + search bar */}
         <View style={[s.libraryHeader, { flexDirection: 'column', gap: 10, paddingBottom: 10 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
             <Pressable onPress={() => setShowSearch(false)} style={s.backBtn}>
@@ -225,52 +163,65 @@ export default function AbyssScreen() {
             <Text style={[s.libraryTitle, { color: c.text }]}>Search Wallpapers</Text>
             <View style={{ width: 70 }} />
           </View>
+
+          {/* Search bar */}
           <View style={[s.searchRowFull, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Ionicons name="search" size={16} color={c.mutedText} />
             <TextInput
               style={[s.searchInput, { color: c.text, flex: 1 }]}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="e.g. Dragon Ball, space, ocean..."
+              placeholder="dragon ball, space, mountains..."
               placeholderTextColor={c.mutedText}
               returnKeyType="search"
               autoFocus
-              onSubmitEditing={searchImages}
+              onSubmitEditing={doSearch}
             />
-            <Pressable
-              onPress={searchImages}
-              style={[s.searchGoBtn, { backgroundColor: c.accent, opacity: searching ? 0.6 : 1 }]}
-              disabled={searching}
-            >
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => { setSearchQuery(''); setSearchResults([]); setSearchError(''); }}>
+                <Ionicons name="close-circle" size={18} color={c.mutedText} />
+              </Pressable>
+            )}
+            <Pressable onPress={doSearch} style={[s.searchGoBtn, { backgroundColor: c.accent, opacity: searching ? 0.6 : 1 }]} disabled={searching}>
               {searching
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Search</Text>}
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Go</Text>}
             </Pressable>
           </View>
-          {searchError ? (
-            <Text style={{ color: c.mutedText, fontSize: 11, paddingHorizontal: 4 }}>{searchError}</Text>
-          ) : null}
+
+          {/* Source note + error */}
+          <Text style={{ color: c.mutedText, fontSize: 10, paddingHorizontal: 2, letterSpacing: 0.3 }}>
+            Powered by Wallhaven · SFW only
+          </Text>
+          {searchError ? <Text style={{ color: '#e05252', fontSize: 12, paddingHorizontal: 2 }}>{searchError}</Text> : null}
         </View>
 
-        {/* Results grid */}
-        {searchResults.length === 0 && !searching ? (
+        {/* Results */}
+        {searching ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+            <ActivityIndicator size="large" color={c.accent} />
+            <Text style={{ color: c.mutedText, fontSize: 14 }}>Searching for "{searchQuery}"…</Text>
+          </View>
+        ) : searchResults.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
             <Ionicons name="images-outline" size={52} color={c.mutedText} />
-            <Text style={{ color: c.mutedText, fontSize: 15 }}>Type a keyword and tap Search</Text>
+            <Text style={{ color: c.mutedText, fontSize: 15 }}>Type a keyword and tap Go</Text>
+            <Text style={{ color: c.mutedText, fontSize: 12, opacity: 0.6 }}>Try: anime, galaxy, forest, city night</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4, paddingBottom: 40 }}>
-            {searchResults.map((uri, i) => (
+          <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', padding: 3, paddingBottom: 50 }}>
+            <Text style={{ width: '100%', color: c.mutedText, fontSize: 11, paddingHorizontal: 4, paddingBottom: 6 }}>
+              {searchResults.length} results for "{searchQuery}"
+            </Text>
+            {searchResults.map((item, i) => (
               <Pressable
-                key={`${uri}-${i}`}
-                onPress={() => { setSelectedUri(uri); setMode('manual'); setShowSearch(false); }}
-                style={[s.thumbWrap, selectedUri === uri && { borderColor: c.accent, borderWidth: 3 }]}
+                key={`${item.uri}-${i}`}
+                onPress={() => { setSelectedUri(item.uri); setMode('manual'); setShowSearch(false); }}
+                style={[s.thumbWrap, selectedUri === item.uri && { borderColor: c.accent, borderWidth: 3 }]}
               >
-                <Image source={{ uri }} style={s.thumb} resizeMode="cover" />
-                {selectedUri === uri && (
-                  <View style={s.thumbCheck}>
-                    <Ionicons name="checkmark-circle" size={22} color={c.accent} />
-                  </View>
+                <Image source={{ uri: item.thumb }} style={s.thumb} resizeMode="cover" />
+                {selectedUri === item.uri && (
+                  <View style={s.thumbCheck}><Ionicons name="checkmark-circle" size={22} color={c.accent} /></View>
                 )}
               </Pressable>
             ))}
@@ -286,7 +237,6 @@ export default function AbyssScreen() {
       <Text style={[s.title, { color: c.text }]}>Abyss Mode</Text>
       <Text style={[s.sub, { color: c.mutedText }]}>Blank your screen with a wallpaper.</Text>
 
-      {/* Mode toggle */}
       <View style={[s.modeRow, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Pressable onPress={() => setMode('auto')} style={[s.modeBtn, mode === 'auto' && { backgroundColor: c.accent }]}>
           <Ionicons name="sync" size={16} color={mode === 'auto' ? '#fff' : c.mutedText} />
@@ -298,7 +248,6 @@ export default function AbyssScreen() {
         </Pressable>
       </View>
 
-      {/* AUTO: wallpaper preview cards */}
       {mode === 'auto' && (
         <View style={{ gap: 10 }}>
           <Text style={[s.sectionLabel, { color: c.mutedText }]}>CYCLES BETWEEN THESE 3 · EVERY 8S</Text>
@@ -317,7 +266,6 @@ export default function AbyssScreen() {
         </View>
       )}
 
-      {/* MANUAL */}
       {mode === 'manual' && (
         <View style={{ gap: 12 }}>
           {selectedUri && (
@@ -341,13 +289,12 @@ export default function AbyssScreen() {
             <Pressable onPress={openSearch} style={[s.pickBtn, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Ionicons name="search" size={28} color={c.accent} />
               <Text style={{ color: c.text, fontWeight: '700', fontSize: 14, marginTop: 6 }}>Search Online</Text>
-              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Find by keyword\nonline'}</Text>
+              <Text style={{ color: c.mutedText, fontSize: 11, textAlign: 'center', marginTop: 2 }}>{'Find by keyword\non Wallhaven'}</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* Password */}
       <View style={[s.pwCard, { backgroundColor: c.surface, borderColor: c.border }]}>
         <Pressable onPress={() => setSettingPw(!settingPw)} style={s.pwRow}>
           <Ionicons name="key" size={18} color={c.accent} />
@@ -356,12 +303,7 @@ export default function AbyssScreen() {
         </Pressable>
         {settingPw && (
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-            <TextInput
-              style={[s.pwInput, { color: c.text, borderColor: c.border }]}
-              value={passwordInput} onChangeText={setPasswordInput}
-              placeholder="New password..." placeholderTextColor={c.mutedText}
-              secureTextEntry
-            />
+            <TextInput style={[s.pwInput, { color: c.text, borderColor: c.border }]} value={passwordInput} onChangeText={setPasswordInput} placeholder="New password..." placeholderTextColor={c.mutedText} secureTextEntry />
             <Pressable onPress={handleSetPassword} style={[s.pwSetBtn, { backgroundColor: c.accent }]}>
               <Text style={{ color: '#fff', fontWeight: '700' }}>Set</Text>
             </Pressable>
@@ -371,10 +313,7 @@ export default function AbyssScreen() {
 
       <Pressable
         onPress={() => {
-          if (mode === 'manual' && !selectedUri) {
-            Alert.alert('No wallpaper selected', 'Pick a wallpaper from Camera Roll or Search first.');
-            return;
-          }
+          if (mode === 'manual' && !selectedUri) { Alert.alert('No wallpaper selected', 'Pick a wallpaper from Camera Roll or Search first.'); return; }
           activateAbyss();
         }}
         style={s.activateBtn}
