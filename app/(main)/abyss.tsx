@@ -1,9 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Animated, Easing, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Animated, Easing, StatusBar, ImageBackground, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../../src/context/AppContext';
 import { NovaColors } from '../../constants/theme';
 import { activateAbyss, deactivateAbyss, isAbyssActive, onAbyssChange, setAbyssPassword } from '../../src/services/abyssService';
+
+const { width, height } = Dimensions.get('window');
+
+const ANIME_WALLPAPERS = [
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/ca5a8d02ac33f3d8f2afca16e4445ed81352cb1e.jpg', // Yasuke samurai blood moon
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/32a87c72e8cc5609b1c3f65c1f86128d98767583.jpg', // glowing silhouette dark energy
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/8fbf1967ec8ff94af10812d9b89489e120c5098b.jpg', // white hair villain fire
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/5face4230e900a76f1c1cb2d7389f9c383ba2762.jpg', // dark aura titan
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/ec0a8e395c0d51c5a9f06974542644281070a422.jpg', // warrior girl dark forest
+  'https://pplx-res.cloudinary.com/image/upload/pplx_search_images/cf815ee5f3836bf29c1e04416442a6e10f8e7d0e.jpg', // purple samurai moon
+];
 
 export default function AbyssScreen() {
   const { themeMode } = useAppContext();
@@ -12,17 +23,34 @@ export default function AbyssScreen() {
   const [unlockInput, setUnlockInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [settingPw, setSettingPw] = useState(false);
+  const [wallpaperIndex, setWallpaperIndex] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => onAbyssChange(setActive), []);
 
+  // Pulse glow animation
   useEffect(() => {
     if (active) {
       Animated.loop(Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.12, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,    duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.15, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])).start();
-    } else { pulse.setValue(1); }
+    } else {
+      pulse.setValue(1);
+    }
+  }, [active]);
+
+  // Wallpaper cycling with crossfade every 8 seconds
+  useEffect(() => {
+    if (!active) return;
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, { toValue: 0, duration: 800, useNativeDriver: true }).start(() => {
+        setWallpaperIndex(i => (i + 1) % ANIME_WALLPAPERS.length);
+        Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+      });
+    }, 8000);
+    return () => clearInterval(interval);
   }, [active]);
 
   const handleDeactivate = async () => {
@@ -42,17 +70,33 @@ export default function AbyssScreen() {
     return (
       <View style={s.abyss}>
         <StatusBar hidden />
+
+        {/* Anime wallpaper with crossfade */}
+        <Animated.Image
+          source={{ uri: ANIME_WALLPAPERS[wallpaperIndex] }}
+          style={[s.wallpaper, { opacity: fadeAnim }]}
+          resizeMode="cover"
+        />
+
+        {/* Dark overlay so unlock UI is readable */}
+        <View style={s.overlay} />
+
+        {/* Pulse glow orb */}
         <Animated.View style={[s.glow, { transform: [{ scale: pulse }] }]} />
+
+        {/* Unlock UI */}
         <View style={s.abyssInner}>
-          <Ionicons name="eye-off" size={42} color="rgba(255,255,255,0.1)" />
+          <Ionicons name="eye-off" size={42} color="rgba(255,255,255,0.25)" />
           <Text style={s.abyssLabel}>ABYSS MODE</Text>
+          <Text style={s.abyssHint}>Swipe or unlock to continue</Text>
+
           <View style={s.unlockRow}>
             <TextInput
               style={s.unlockInput}
               value={unlockInput}
               onChangeText={setUnlockInput}
               placeholder="Password..."
-              placeholderTextColor="rgba(255,255,255,0.18)"
+              placeholderTextColor="rgba(255,255,255,0.25)"
               secureTextEntry
               autoFocus
             />
@@ -60,11 +104,20 @@ export default function AbyssScreen() {
               <Ionicons name="lock-open" size={20} color="#fff" />
             </Pressable>
           </View>
+
           <Text style={s.orText}>— or —</Text>
+
           <Pressable onPress={() => deactivateAbyss()} style={s.bioBtn}>
-            <Ionicons name="finger-print" size={36} color="rgba(255,255,255,0.3)" />
+            <Ionicons name="finger-print" size={42} color="rgba(255,255,255,0.5)" />
             <Text style={s.bioText}>Face ID / Touch ID</Text>
           </Pressable>
+
+          {/* Wallpaper dots indicator */}
+          <View style={s.dotsRow}>
+            {ANIME_WALLPAPERS.map((_, i) => (
+              <View key={i} style={[s.dot, { opacity: i === wallpaperIndex ? 1 : 0.25 }]} />
+            ))}
+          </View>
         </View>
       </View>
     );
@@ -75,18 +128,27 @@ export default function AbyssScreen() {
       <Text style={[s.title, { color: c.text }]}>Abyss Mode</Text>
       <Text style={[s.sub, { color: c.mutedText }]}>{"Blank your screen instantly.\nUnlock with Face ID or password."}</Text>
 
-      <View style={[s.preview, { backgroundColor: '#05070f', borderColor: c.border }]}>
-        <Ionicons name="eye-off" size={40} color="rgba(255,255,255,0.15)" />
-        <Text style={{ color: 'rgba(255,255,255,0.15)', marginTop: 8, fontSize: 13 }}>Complete blackout</Text>
-      </View>
+      {/* Preview of wallpaper */}
+      <ImageBackground
+        source={{ uri: ANIME_WALLPAPERS[0] }}
+        style={s.preview}
+        imageStyle={{ borderRadius: 20 }}
+        resizeMode="cover"
+      >
+        <View style={s.previewOverlay}>
+          <Ionicons name="eye-off" size={36} color="rgba(255,255,255,0.7)" />
+          <Text style={{ color: 'rgba(255,255,255,0.7)', marginTop: 8, fontSize: 13, fontWeight: '600' }}>Anime Wallpaper Mode</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>{ANIME_WALLPAPERS.length} wallpapers · Auto-cycles every 8s</Text>
+        </View>
+      </ImageBackground>
 
       <View style={[s.infoCard, { backgroundColor: c.surface, borderColor: c.border }]}>
         {[
-          ['eye-off',               'Hides all content instantly'],
-          ['finger-print',          'Unlock with Face ID / Touch ID'],
-          ['key',                   'Fallback password unlock'],
-          ['notifications-off',     'Suppresses notification previews'],
-          ['shield-checkmark',      'Logged to security audit trail'],
+          ['eye-off',           'Shows powerful anime wallpapers'],
+          ['finger-print',      'Unlock with Face ID / Touch ID'],
+          ['key',               'Fallback password unlock'],
+          ['images',            'Cycles through 6 anime wallpapers'],
+          ['shield-checkmark',  'Logged to security audit trail'],
         ].map(([icon, label]) => (
           <View key={label} style={s.infoRow}>
             <Ionicons name={icon as any} size={18} color={c.accent} />
@@ -128,7 +190,8 @@ const s = StyleSheet.create({
   container: { flex: 1, paddingTop: 60, paddingHorizontal: 16, gap: 16 },
   title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
   sub: { fontSize: 14, lineHeight: 20, marginTop: -8 },
-  preview: { height: 140, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  preview: { height: 160, borderRadius: 20, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
+  previewOverlay: { flex: 1, width: '100%', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   infoCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   pwCard: { borderRadius: 14, borderWidth: 1, padding: 14 },
@@ -136,14 +199,20 @@ const s = StyleSheet.create({
   pwInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15 },
   pwSetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   activateBtn: { backgroundColor: '#05070f', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18, marginBottom: 40 },
-  abyss: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: '#4f8ef7', opacity: 0.04 },
-  abyssInner: { alignItems: 'center', gap: 14, paddingHorizontal: 36 },
-  abyssLabel: { color: 'rgba(255,255,255,0.12)', fontSize: 13, fontWeight: '700', letterSpacing: 5, marginTop: 8 },
+  // Abyss overlay styles
+  abyss: { flex: 1, backgroundColor: '#000' },
+  wallpaper: { position: 'absolute', width, height },
+  overlay: { position: 'absolute', width, height, backgroundColor: 'rgba(0,0,0,0.55)' },
+  glow: { position: 'absolute', top: height * 0.35, left: width * 0.5 - 120, width: 240, height: 240, borderRadius: 120, backgroundColor: '#7c3aed', opacity: 0.12 },
+  abyssInner: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: 36 },
+  abyssLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '800', letterSpacing: 6, marginTop: 8 },
+  abyssHint: { color: 'rgba(255,255,255,0.2)', fontSize: 11, letterSpacing: 1 },
   unlockRow: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 20 },
-  unlockInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, color: '#fff', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  unlockBtn: { backgroundColor: 'rgba(255,255,255,0.07)', padding: 14, borderRadius: 12 },
-  orText: { color: 'rgba(255,255,255,0.1)', fontSize: 12, marginVertical: 4 },
-  bioBtn: { alignItems: 'center', gap: 6, padding: 12 },
-  bioText: { color: 'rgba(255,255,255,0.2)', fontSize: 12 },
+  unlockInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  unlockBtn: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  orText: { color: 'rgba(255,255,255,0.2)', fontSize: 12, marginVertical: 2 },
+  bioBtn: { alignItems: 'center', gap: 8, padding: 12 },
+  bioText: { color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+  dotsRow: { flexDirection: 'row', gap: 6, marginTop: 24 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
 });
