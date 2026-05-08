@@ -1,26 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../../src/context/AppContext';
 import { NovaColors } from '../../constants/theme';
 import chatService from '../../src/services/chatService';
-import { initiatePayment } from '../../src/services/paymentService';
+import { initiatePayment, PAYMENT_METHODS } from '../../src/services/paymentService';
 
-// Guaranteed unique ID — never reuse timestamp alone
 let _idCounter = 0;
 function uid() {
   return `local_${Date.now()}_${++_idCounter}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
 const CHAT_NAMES: Record<string, string> = {
-  chat_1: 'Alice',
-  chat_2: 'Bob',
-  chat_3: 'Carol',
-  // legacy fallback
-  '1': 'Alice',
-  '2': 'Bob',
-  '3': 'Carol',
+  chat_1: 'Alice', chat_2: 'Bob', chat_3: 'Carol',
+  '1': 'Alice', '2': 'Bob', '3': 'Carol',
 };
 
 export default function ChatDetail() {
@@ -31,6 +25,7 @@ export default function ChatDetail() {
   const [text, setText] = useState('');
   const [payAmount, setPayAmount] = useState('');
   const [showPay, setShowPay] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState('nova_pay');
   const flatRef = useRef<any>(null);
 
   const chatId = Array.isArray(id) ? id[0] : id;
@@ -38,52 +33,44 @@ export default function ChatDetail() {
 
   useEffect(() => {
     chatService.getMessages(chatId).then((msgs: any[]) => {
-      // Deduplicate on load — nuclear option
       const seen = new Set<string>();
-      const deduped = msgs.filter(m => {
-        if (seen.has(m.id)) return false;
-        seen.add(m.id);
-        return true;
-      });
-      setMessages(deduped);
+      setMessages(msgs.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; }));
     });
   }, []);
 
   const send = async () => {
     if (!text.trim()) return;
     const msg = await chatService.sendMessage(chatId, text, user?.username || 'me');
-    setMessages(prev => {
-      // prevent duplicate if chatService already appended
-      if (prev.some(m => m.id === msg.id)) return prev;
-      return [...prev, msg];
-    });
+    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
     setText('');
     setTimeout(() => flatRef.current?.scrollToEnd(), 100);
   };
 
   const handlePay = async () => {
     const amount = parseFloat(payAmount);
-    if (!amount || amount <= 0) { Alert.alert('Invalid Amount', 'Enter a valid payment amount.'); return; }
+    if (!amount || amount <= 0) { Alert.alert('Invalid Amount', 'Enter a valid amount.'); return; }
     setShowPay(false);
-    const result = await initiatePayment(user?.username || 'me', chatName, amount, 'USD');
+    const result = await initiatePayment(user?.username || 'me', chatName, amount, selectedMethod === 'upi' ? 'INR' : 'USD', selectedMethod);
     if (result.success) {
+      const { methodMeta } = result;
       const msg = {
-        id: uid(), // ← guaranteed unique, never Date.now() alone
-        text: `💸 Sent $${amount.toFixed(2)} via Nova Pay\nTx: ${result.transaction.id}\n🔒 HMAC-signed · Biometric authorized`,
+        id: uid(),
+        text: `${methodMeta.symbol === '₿' ? '₿' : methodMeta.symbol === '₹' ? '📲' : '💸'} Sent ${methodMeta.symbol}${amount.toFixed(2)} via ${methodMeta.label}\nTx: ${result.transaction.id}\n🔒 HMAC-signed · Biometric authorized · ${methodMeta.network}`,
         sender: user?.username || 'me',
         timestamp: new Date().toISOString(),
         isPayment: true,
+        paymentMethod: selectedMethod,
       };
-      setMessages(prev => {
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-      Alert.alert('Payment Sent! ✅', `$${amount.toFixed(2)} sent to ${chatName}\nTransaction ID: ${result.transaction.id}`);
+      setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+      Alert.alert('Payment Sent! ✅', `${methodMeta.symbol}${amount.toFixed(2)} sent to ${chatName} via ${methodMeta.label}\nTx: ${result.transaction.id}`);
     } else {
       Alert.alert('Payment Failed', result.reason);
     }
     setPayAmount('');
   };
+
+  const methodColors: Record<string, string> = { nova_pay: '#6C63FF', upi: '#00A86B', crypto: '#F7931A' };
+  const activeColor = methodColors[selectedMethod] || c.accent;
 
   return (
     <KeyboardAvoidingView style={[s.container, { backgroundColor: c.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -102,7 +89,7 @@ export default function ChatDetail() {
             <Text style={[s.e2eLabel, { color: c.success }]}>End-to-end encrypted</Text>
           </View>
         </View>
-        <Pressable onPress={() => setShowPay(!showPay)} style={[s.payBtn, { backgroundColor: c.accent }]}>
+        <Pressable onPress={() => setShowPay(!showPay)} style={[s.payBtn, { backgroundColor: activeColor }]}>
           <Ionicons name="card" size={14} color="#fff" />
           <Text style={s.payBtnText}>Pay</Text>
         </Pressable>
@@ -111,16 +98,41 @@ export default function ChatDetail() {
       {/* Pay panel */}
       {showPay && (
         <View style={[s.payPanel, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[s.payTitle, { color: c.text }]}>💳 Nova Pay — Send Money</Text>
-          <Text style={[s.paySub, { color: c.mutedText }]}>Biometric required · PCI-DSS compliant · HMAC-signed</Text>
+          <Text style={[s.payTitle, { color: c.text }]}>💳 Nova Pay — Choose Method</Text>
+          <Text style={[s.paySub, { color: c.mutedText }]}>Biometric required · PCI-DSS · HMAC-signed</Text>
+
+          {/* Method selector */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.methodRow}>
+            {PAYMENT_METHODS.map(m => (
+              <Pressable
+                key={m.id}
+                onPress={() => setSelectedMethod(m.id)}
+                style={[
+                  s.methodCard,
+                  { borderColor: selectedMethod === m.id ? m.color : c.border, backgroundColor: selectedMethod === m.id ? m.color + '18' : c.background }
+                ]}
+              >
+                <Ionicons name={m.icon as any} size={22} color={selectedMethod === m.id ? m.color : c.mutedText} />
+                <Text style={[s.methodName, { color: selectedMethod === m.id ? m.color : c.text }]}>{m.name}</Text>
+                <Text style={[s.methodDesc, { color: c.mutedText }]}>{m.description}</Text>
+                <View style={[s.methodBadge, { backgroundColor: m.color + '22' }]}>
+                  <Text style={[s.methodBadgeText, { color: m.color }]}>{m.badge}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Amount input */}
           <View style={s.payRow}>
-            <Text style={[s.paySymbol, { color: c.text }]}>$</Text>
+            <Text style={[s.paySymbol, { color: activeColor }]}>
+              {selectedMethod === 'upi' ? '₹' : selectedMethod === 'crypto' ? '₿' : '$'}
+            </Text>
             <TextInput
-              style={[s.payInput, { color: c.text, borderColor: c.border, backgroundColor: c.background }]}
+              style={[s.payInput, { color: c.text, borderColor: activeColor, backgroundColor: c.background }]}
               value={payAmount} onChangeText={setPayAmount}
               keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={c.mutedText}
             />
-            <Pressable onPress={handlePay} style={[s.paySend, { backgroundColor: c.accent }]}>
+            <Pressable onPress={handlePay} style={[s.paySend, { backgroundColor: activeColor }]}>
               <Ionicons name="send" size={16} color="#fff" />
             </Pressable>
           </View>
@@ -136,14 +148,15 @@ export default function ChatDetail() {
         onContentSizeChange={() => flatRef.current?.scrollToEnd()}
         renderItem={({ item }) => {
           const isMe = item.sender === (user?.username || 'me') || item.from === 'me';
+          const pmColor = item.paymentMethod ? methodColors[item.paymentMethod] : c.success;
           return (
             <View style={[s.msgWrap, isMe ? s.msgRight : s.msgLeft]}>
               <View style={[
                 s.bubble,
                 isMe ? { backgroundColor: c.accent } : { backgroundColor: c.surface, borderColor: c.border, borderWidth: 1 },
-                item.isPayment && { backgroundColor: c.success + '22', borderColor: c.success, borderWidth: 1 },
+                item.isPayment && { backgroundColor: pmColor + '18', borderColor: pmColor, borderWidth: 1 },
               ]}>
-                <Text style={[s.msgText, { color: isMe ? '#fff' : c.text }, item.isPayment && { color: c.success }]}>
+                <Text style={[s.msgText, { color: isMe ? '#fff' : c.text }, item.isPayment && { color: pmColor }]}>
                   {item.text}
                 </Text>
                 <View style={s.msgMeta}>
@@ -184,12 +197,18 @@ const s = StyleSheet.create({
   e2eLabel: { fontSize: 11 },
   payBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99 },
   payBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  payPanel: { margin: 16, padding: 14, borderRadius: 14, borderWidth: 1, gap: 8 },
+  payPanel: { margin: 16, padding: 14, borderRadius: 14, borderWidth: 1, gap: 10 },
   payTitle: { fontSize: 15, fontWeight: '700' },
   paySub: { fontSize: 11 },
+  methodRow: { flexDirection: 'row', marginVertical: 4 },
+  methodCard: { width: 120, padding: 10, borderRadius: 12, borderWidth: 1.5, marginRight: 10, gap: 4, alignItems: 'flex-start' },
+  methodName: { fontSize: 14, fontWeight: '700' },
+  methodDesc: { fontSize: 10, lineHeight: 14 },
+  methodBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 99, marginTop: 2 },
+  methodBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   payRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   paySymbol: { fontSize: 20, fontWeight: '600' },
-  payInput: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 10, fontSize: 18 },
+  payInput: { flex: 1, borderWidth: 1.5, borderRadius: 10, padding: 10, fontSize: 18 },
   paySend: { padding: 12, borderRadius: 10 },
   msgWrap: { flexDirection: 'row' },
   msgRight: { justifyContent: 'flex-end' },
