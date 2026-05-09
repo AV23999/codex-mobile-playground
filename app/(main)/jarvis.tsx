@@ -19,6 +19,8 @@ const BG      = '#060b14';
 const SURFACE = 'rgba(125,249,255,0.06)';
 const BORDER  = 'rgba(125,249,255,0.15)';
 
+const NOVA_KEY_STORAGE = 'nova_api_key_v2'; // v2 to avoid stale cached keys
+
 let Voice: any = null;
 try { Voice = require('@react-native-voice/voice').default; } catch { Voice = null; }
 
@@ -55,40 +57,50 @@ type Msg  = { id: string; role: Role; content: string; timestamp: number; isStre
 export default function NovaAgentScreen() {
   useAppContext();
 
-  const [messages,       setMessages]       = useState<Msg[]>([]);
-  const [input,          setInput]          = useState('');
-  const [thinking,       setThinking]       = useState(false);
-  const [apiKey,         setApiKey]         = useState('');
-  const [keyInput,       setKeyInput]       = useState('');
-  const [showKeyModal,   setShowKeyModal]   = useState(false);
-  const [keyLoaded,      setKeyLoaded]      = useState(false);
-  const [listening,      setListening]      = useState(false);
-  const [voiceText,      setVoiceText]      = useState('');
-  const [isSpeaking,     setIsSpeaking]     = useState(false);
-  const [ttsEnabled,     setTtsEnabled]     = useState(true);
-  const [personality,    setPersonality]    = useState<NovaPersonality>('default');
+  const [messages,        setMessages]        = useState<Msg[]>([]);
+  const [input,           setInput]           = useState('');
+  const [thinking,        setThinking]        = useState(false);
+  const [apiKey,          setApiKey]          = useState('');
+  const [keyInput,        setKeyInput]        = useState('');
+  const [showKeyModal,    setShowKeyModal]    = useState(false);
+  const [keyLoaded,       setKeyLoaded]       = useState(false);
+  const [listening,       setListening]       = useState(false);
+  const [voiceText,       setVoiceText]       = useState('');
+  const [isSpeaking,      setIsSpeaking]      = useState(false);
+  const [ttsEnabled,      setTtsEnabled]      = useState(true);
+  const [personality,     setPersonality]     = useState<NovaPersonality>('default');
   const [showPersonality, setShowPersonality] = useState(false);
-  const [streamingText,  setStreamingText]  = useState('');
-  const [isStreaming,    setIsStreaming]     = useState(false);
-  const [memories,       setMemories]       = useState<MemoryEntry[]>([]);
-  const [showMemory,     setShowMemory]     = useState(false);
-  const [isOnline,       setIsOnline]       = useState(true);
+  const [streamingText,   setStreamingText]   = useState('');
+  const [isStreaming,     setIsStreaming]      = useState(false);
+  const [memories,        setMemories]        = useState<MemoryEntry[]>([]);
+  const [showMemory,      setShowMemory]      = useState(false);
+  const [isOnline,        setIsOnline]        = useState(true);
+  const [lastError,       setLastError]       = useState('');
 
-  const scrollRef   = useRef<ScrollView>(null);
-  const pulseAnim   = useRef(new Animated.Value(1)).current;
-  const ringAnim    = useRef(new Animated.Value(0)).current;
-  const glowAnim    = useRef(new Animated.Value(0.4)).current;
-  const waveAnims   = useRef([...Array(7)].map(() => new Animated.Value(0.3))).current;
-  const voicePulse  = useRef(new Animated.Value(1)).current;
-  const inputRef    = useRef<TextInput>(null);
+  const scrollRef    = useRef<ScrollView>(null);
+  const pulseAnim    = useRef(new Animated.Value(1)).current;
+  const ringAnim     = useRef(new Animated.Value(0)).current;
+  const glowAnim     = useRef(new Animated.Value(0.4)).current;
+  const waveAnims    = useRef([...Array(7)].map(() => new Animated.Value(0.3))).current;
+  const voicePulse   = useRef(new Animated.Value(1)).current;
+  const inputRef     = useRef<TextInput>(null);
   const streamBuffer = useRef('');
 
-  // Load persisted state
+  // Load persisted key + prefs on mount
   useEffect(() => {
-    AsyncStorage.getItem('nova_api_key').then(k => { if (k) setApiKey(k); setKeyLoaded(true); });
-    AsyncStorage.getItem('nova_tts').then(v => { if (v !== null) setTtsEnabled(v === '1'); });
-    AsyncStorage.getItem('nova_personality').then(v => { if (v) setPersonality(v as NovaPersonality); });
-    loadAllMemories().then(setMemories);
+    (async () => {
+      const k = await AsyncStorage.getItem(NOVA_KEY_STORAGE);
+      if (k && k.length > 10) setApiKey(k);
+      setKeyLoaded(true);
+
+      const tts = await AsyncStorage.getItem('nova_tts');
+      if (tts !== null) setTtsEnabled(tts === '1');
+
+      const pers = await AsyncStorage.getItem('nova_personality');
+      if (pers) setPersonality(pers as NovaPersonality);
+
+      loadAllMemories().then(setMemories);
+    })();
   }, []);
 
   // Orb animations
@@ -174,10 +186,8 @@ export default function NovaAgentScreen() {
     setVoiceText('');
     stopSpeaking();
 
-    // Haptic feedback on send
     try { await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
 
-    // Auto-save memory from message
     const memHint = extractMemoryFromMessage(text);
     if (memHint?.shouldSave) {
       await saveMemory(memHint.content, memHint.category);
@@ -188,6 +198,7 @@ export default function NovaAgentScreen() {
     const updated = [...messages, userMsg];
     setMessages(updated);
     setThinking(true);
+    setLastError('');
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
@@ -195,12 +206,13 @@ export default function NovaAgentScreen() {
       setStreamingText('');
       setIsStreaming(false);
 
+      const currentKey = apiKey;
+
       const reply = await sendToNova(
         updated.map(m => ({ role: m.role, content: m.content })),
-        apiKey,
+        currentKey,
         personality,
         (chunk: string) => {
-          // First chunk — switch from thinking to streaming
           if (thinking || !isStreaming) {
             setThinking(false);
             setIsStreaming(true);
@@ -221,7 +233,6 @@ export default function NovaAgentScreen() {
       speakReply(reply);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
-      // Haptic on receive
       try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
 
     } catch (e: any) {
@@ -230,12 +241,16 @@ export default function NovaAgentScreen() {
       setStreamingText('');
       streamBuffer.current = '';
 
-      if (e.message === 'NO_KEY' || e.message === 'INVALID_KEY') {
+      const errMsg = e.message || '';
+      setLastError(errMsg);
+
+      if (errMsg === 'NO_KEY' || errMsg === 'INVALID_KEY') {
         setShowKeyModal(true);
-      } else if (e.message === 'RATE_LIMIT') {
-        Alert.alert('N.O.V.A', 'Rate limit reached. Please wait a moment.');
+        Alert.alert('API Key Required', errMsg === 'INVALID_KEY' ? 'Your key is invalid. Please re-enter it.' : 'Please enter your Gemini API key to activate N.O.V.A.');
+      } else if (errMsg === 'RATE_LIMIT') {
+        Alert.alert('N.O.V.A', 'Rate limit reached. Please wait a moment and try again.');
       } else {
-        // Offline fallback — show graceful message
+        // True network/offline error
         setIsOnline(false);
         const fallback = OFFLINE_RESPONSES[Math.floor(Math.random() * OFFLINE_RESPONSES.length)];
         const offMsg: Msg = { id: `off-${Date.now()}`, role: 'assistant', content: fallback, timestamp: Date.now() };
@@ -269,9 +284,13 @@ export default function NovaAgentScreen() {
 
   const saveKey = async () => {
     const k = keyInput.trim();
-    if (k.length < 10) { Alert.alert('Invalid Key', 'Please paste your Gemini API key.'); return; }
-    await AsyncStorage.setItem('nova_api_key', k);
-    setApiKey(k); setKeyInput(''); setShowKeyModal(false);
+    if (k.length < 10) { Alert.alert('Invalid Key', 'Please paste your full Gemini API key.'); return; }
+    await AsyncStorage.setItem(NOVA_KEY_STORAGE, k);
+    setApiKey(k);
+    setKeyInput('');
+    setShowKeyModal(false);
+    setIsOnline(true);
+    setLastError('');
   };
 
   const toggleTts = async () => {
@@ -378,7 +397,7 @@ export default function NovaAgentScreen() {
     </View>
   );
 
-  // ── KEY SETUP
+  // ── KEY SETUP SCREEN
   if (needsKey || showKeyModal) return (
     <View style={[s.fill,{backgroundColor:BG,alignItems:'center',justifyContent:'center',padding:24,gap:18}]}>
       <StatusBar barStyle="light-content" />
@@ -394,11 +413,18 @@ export default function NovaAgentScreen() {
           <Ionicons name="open-outline" size={14} color={ACCENT} />
           <Text style={{color:ACCENT,fontSize:13,fontWeight:'700'}}>aistudio.google.com/app/apikey</Text>
         </Pressable>
-        <TextInput style={s.keyInput} value={keyInput} onChangeText={setKeyInput}
+        <TextInput
+          style={s.keyInput}
+          value={keyInput}
+          onChangeText={setKeyInput}
           placeholder="Paste your Gemini API key here..."
-          placeholderTextColor="rgba(125,249,255,0.3)" autoCapitalize="none" autoCorrect={false}
+          placeholderTextColor="rgba(125,249,255,0.3)"
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
         />
-        <Pressable onPress={saveKey} style={s.activateBtn}>
+        <Pressable onPress={saveKey} style={[s.activateBtn, keyInput.length > 10 && { shadowColor: ACCENT, shadowOpacity: 0.6, shadowRadius: 16, shadowOffset: {width:0,height:0} }]}>
           <Text style={s.activateBtnText}>Activate N.O.V.A ⚡</Text>
         </Pressable>
         {showKeyModal && (
@@ -407,7 +433,9 @@ export default function NovaAgentScreen() {
           </Pressable>
         )}
       </View>
-      <Text style={{color:'rgba(125,249,255,0.25)',fontSize:11,textAlign:'center'}}>Key saved locally on-device only.</Text>
+      <Text style={{color:'rgba(125,249,255,0.25)',fontSize:11,textAlign:'center'}}>
+        Key saved locally on-device only. Never sent anywhere except Google.
+      </Text>
     </View>
   );
 
@@ -455,7 +483,7 @@ export default function NovaAgentScreen() {
         <View style={s.offlineBanner}>
           <Ionicons name="cloud-offline-outline" size={14} color="#FF6B6B" />
           <Text style={{ color:'#FF6B6B', fontSize:12, marginLeft:6 }}>Offline — tap to retry</Text>
-          <Pressable onPress={() => setIsOnline(true)} style={{ marginLeft:'auto' }}>
+          <Pressable onPress={() => { setIsOnline(true); }} style={{ marginLeft:'auto' }}>
             <Text style={{ color:'#FF6B6B', fontSize:12, fontWeight:'700' }}>Retry</Text>
           </Pressable>
         </View>
