@@ -2,81 +2,90 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, ScrollView,
   KeyboardAvoidingView, Platform, Animated, Easing, Dimensions,
-  ActivityIndicator, Alert, Keyboard, StatusBar,
+  ActivityIndicator, Alert, Keyboard, StatusBar, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppContext } from '../../src/context/AppContext';
 import { NovaColors } from '../../constants/theme';
-import { sendToJarvis, JarvisMessage, JARVIS_API_KEY } from '../../src/services/jarvisService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendToNova, JarvisMessage, NOVA_API_KEY_PLACEHOLDER } from '../../src/services/jarvisService';
 
 const { width } = Dimensions.get('window');
 
 const QUICK_PROMPTS = [
-  { label: '🌍 World News', text: 'What are the most important things happening in the world right now that I should know about?' },
-  { label: '🚀 Space', text: 'Tell me something mind-blowing about space or the universe.' },
+  { label: '🌍 World Events', text: 'What are the most important things happening in the world right now that I should know about?' },
+  { label: '🚀 Space & Universe', text: 'Tell me something genuinely mind-blowing about space or the universe.' },
   { label: '🧠 Explain Anything', text: 'Explain quantum entanglement like I\'m smart but not a physicist.' },
-  { label: '⚡ Capabilities', text: 'What can you do? Show me everything you\'re capable of.' },
-  { label: '💡 Idea Factory', text: 'Give me 5 genuinely unique business ideas for 2025.' },
-  { label: '🔬 Science', text: 'What\'s the most recent scientific breakthrough that could change humanity?' },
-  { label: '🎭 Debate Me', text: 'Pick a controversial topic and debate both sides brilliantly.' },
-  { label: '🛡️ Life Advice', text: 'Give me the most important life principle you would recommend.' },
+  { label: '⚡ What can you do?', text: 'What can you do? Show me the full range of your capabilities.' },
+  { label: '💡 Idea Factory', text: 'Give me 5 genuinely unique and viable business ideas for right now.' },
+  { label: '🔬 Breakthrough Science', text: 'What recent scientific discovery could change humanity forever?' },
+  { label: '🎭 Debate Both Sides', text: 'Pick a controversial topic and argue both sides brilliantly.' },
+  { label: '🛡️ Life Principle', text: 'Give me the single most important life principle you\'d recommend.' },
+  { label: '🐈 Surprise Me', text: 'Tell me something fascinating that most people don\'t know.' },
+  { label: '💻 Help me code', text: 'I need help with some code. What languages and frameworks do you know?' },
 ];
 
 type Msg = JarvisMessage & { id: string; timestamp: number };
 
-export default function JarvisScreen() {
+const ACCENT = '#7DF9FF'; // electric cyan — N.O.V.A signature colour
+const BG     = '#060b14';
+const SURFACE= 'rgba(125,249,255,0.06)';
+const BORDER = 'rgba(125,249,255,0.15)';
+
+export default function NovaAgentScreen() {
   const { themeMode } = useAppContext();
-  const c = NovaColors[themeMode];
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [apiKey, setApiKey] = useState(JARVIS_API_KEY);
+  const [apiKey, setApiKey] = useState('');
   const [keyInput, setKeyInput] = useState('');
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [typingText, setTypingText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [keyLoaded, setKeyLoaded] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const ringAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0.4)).current;
-  const inputRef = useRef<TextInput>(null);
+  const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const ringAnim   = useRef(new Animated.Value(0)).current;
+  const glowAnim   = useRef(new Animated.Value(0.4)).current;
+  const inputRef   = useRef<TextInput>(null);
 
-  // Load saved API key
   useEffect(() => {
-    AsyncStorage.getItem('jarvis_api_key').then(k => { if (k) setApiKey(k); });
+    AsyncStorage.getItem('nova_api_key').then(k => {
+      if (k) setApiKey(k);
+      setKeyLoaded(true);
+    });
   }, []);
 
-  // Arc reactor pulse animation
+  // Pulsing orb animations
   useEffect(() => {
     Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.12, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.14, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1,    duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ])).start();
-    Animated.loop(Animated.timing(ringAnim, { toValue: 1, duration: 3200, easing: Easing.linear, useNativeDriver: true })).start();
+    Animated.loop(
+      Animated.timing(ringAnim, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: true })
+    ).start();
     Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim, { toValue: 0.9, duration: 2400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: 0.4, duration: 2400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(glowAnim, { toValue: 1,   duration: 2600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      Animated.timing(glowAnim, { toValue: 0.3, duration: 2600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
     ])).start();
   }, []);
 
   const spin = ringAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const spinReverse = ringAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
 
   const typewriterEffect = (text: string, onDone: () => void) => {
     setIsTyping(true);
     setTypingText('');
     let i = 0;
-    const speed = Math.max(8, Math.min(22, Math.floor(2000 / text.length)));
-    const interval = setInterval(() => {
+    const speed = Math.max(6, Math.min(20, Math.floor(1800 / text.length)));
+    const iv = setInterval(() => {
       i++;
       setTypingText(text.slice(0, i));
-      if (i >= text.length) {
-        clearInterval(interval);
-        setIsTyping(false);
-        onDone();
-      }
+      scrollRef.current?.scrollToEnd({ animated: false });
+      if (i >= text.length) { clearInterval(iv); setIsTyping(false); onDone(); }
     }, speed);
   };
 
@@ -86,117 +95,140 @@ export default function JarvisScreen() {
     Keyboard.dismiss();
     setInput('');
 
-    const userMsg: Msg = { id: Date.now().toString(), role: 'user', content: text, timestamp: Date.now() };
-    const updatedMsgs = [...messages, userMsg];
-    setMessages(updatedMsgs);
+    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: text, timestamp: Date.now() };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
     setThinking(true);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
-      const reply = await sendToJarvis(
-        updatedMsgs.map(m => ({ role: m.role, content: m.content })),
+      const reply = await sendToNova(
+        updated.map(m => ({ role: m.role, content: m.content })),
         apiKey
       );
-      const assistantMsg: Msg = { id: (Date.now() + 1).toString(), role: 'assistant', content: reply, timestamp: Date.now() };
       setThinking(false);
+      const assistantMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: reply, timestamp: Date.now() };
       typewriterEffect(reply, () => {
         setMessages(prev => [...prev, assistantMsg]);
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
       });
     } catch (e: any) {
       setThinking(false);
-      if (e.message === 'NO_KEY' || e.message === 'INVALID_KEY') {
-        setShowKeyModal(true);
-      } else if (e.message === 'RATE_LIMIT') {
-        Alert.alert('JARVIS Overloaded', 'Too many requests. Please wait a moment.');
-      } else {
-        Alert.alert('Connection Error', e.message || 'Failed to reach JARVIS. Check your connection.');
-      }
+      if (e.message === 'NO_KEY' || e.message === 'INVALID_KEY') setShowKeyModal(true);
+      else if (e.message === 'RATE_LIMIT') Alert.alert('N.O.V.A', 'Too many requests. Please wait a moment, sir.');
+      else Alert.alert('N.O.V.A Offline', e.message || 'Connection error. Check your internet.');
     }
   }, [input, messages, thinking, apiKey]);
 
   const saveKey = async () => {
     const k = keyInput.trim();
-    if (!k.startsWith('sk-')) { Alert.alert('Invalid Key', 'OpenAI keys start with sk-'); return; }
-    await AsyncStorage.setItem('jarvis_api_key', k);
+    if (k.length < 10) { Alert.alert('Invalid Key', 'Please paste your Gemini API key.'); return; }
+    await AsyncStorage.setItem('nova_api_key', k);
     setApiKey(k);
     setKeyInput('');
     setShowKeyModal(false);
   };
 
-  const clearChat = () => {
-    Alert.alert('Clear conversation?', 'This will erase all messages.', [
+  const clearChat = () =>
+    Alert.alert('Clear conversation?', 'All messages will be erased.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: () => { setMessages([]); setTypingText(''); setIsTyping(false); } },
     ]);
-  };
 
-  const needsKey = apiKey === 'YOUR_OPENAI_API_KEY_HERE' || !apiKey;
+  const needsKey = !keyLoaded ? false : (!apiKey || apiKey === NOVA_API_KEY_PLACEHOLDER);
 
-  // ── API KEY SETUP MODAL
-  if (showKeyModal || needsKey) {
+  // ── ORB component
+  const Orb = ({ size = 110 }: { size?: number }) => (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[{
+        position: 'absolute', width: size, height: size, borderRadius: size / 2,
+        borderWidth: 1.5, borderColor: ACCENT, borderStyle: 'dashed',
+        transform: [{ rotate: spin }], opacity: glowAnim,
+      }]} />
+      <Animated.View style={[{
+        position: 'absolute', width: size * 0.72, height: size * 0.72, borderRadius: size * 0.36,
+        borderWidth: 1, borderColor: ACCENT,
+        transform: [{ rotate: spinReverse }], opacity: glowAnim,
+      }]} />
+      <Animated.View style={[{
+        width: size * 0.52, height: size * 0.52, borderRadius: size * 0.26,
+        backgroundColor: `rgba(125,249,255,0.1)`,
+        borderWidth: 2, borderColor: ACCENT,
+        alignItems: 'center', justifyContent: 'center',
+        transform: [{ scale: pulseAnim }],
+        shadowColor: ACCENT, shadowOpacity: 0.9, shadowRadius: 20, shadowOffset: { width: 0, height: 0 },
+      }]}>
+        <View style={{ width: size * 0.22, height: size * 0.22, borderRadius: size * 0.11, backgroundColor: ACCENT, shadowColor: ACCENT, shadowOpacity: 1, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } }} />
+      </Animated.View>
+    </View>
+  );
+
+  // ── KEY SETUP SCREEN
+  if (keyLoaded && needsKey || showKeyModal) {
     return (
-      <View style={[s.keyScreen, { backgroundColor: '#020c18' }]}>
+      <View style={[s.fill, { backgroundColor: BG, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 18 }]}>
         <StatusBar barStyle="light-content" />
-        <Animated.View style={[s.reactorWrap, { transform: [{ scale: pulseAnim }] }]}>
-          <Animated.View style={[s.reactorRing, { transform: [{ rotate: spin }], opacity: glowAnim }]} />
-          <View style={s.reactorCore}>
-            <View style={s.reactorInner} />
-          </View>
-        </Animated.View>
-        <Text style={s.jarvisTitle}>J.A.R.V.I.S</Text>
-        <Text style={s.jarvisSub}>Just A Rather Very Intelligent System</Text>
-        <View style={s.keyCard}>
-          <Text style={s.keyCardTitle}>OpenAI API Key Required</Text>
-          <Text style={s.keyCardSub}>
-            JARVIS runs on GPT-4o — the most powerful AI available.{`\n`}
-            Get your free API key at platform.openai.com
+        <Orb size={120} />
+        <Text style={s.novaTitle}>N.O.V.A</Text>
+        <Text style={s.novaSub}>Neural Omniscient Virtual Agent</Text>
+
+        <View style={[s.card, { width: '100%', gap: 14 }]}>
+          <Text style={[s.cardTitle, { textAlign: 'center' }]}>🔑 Activate N.O.V.A</Text>
+          <Text style={[s.cardSub, { textAlign: 'center' }]}>
+            N.O.V.A runs on Google Gemini — {`\n`}completely free, 24/7, no credit card needed.{`\n`}
+            Get your key in 30 seconds:
           </Text>
+          <Pressable onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey')} style={[s.linkBtn]}>
+            <Ionicons name="open-outline" size={14} color={ACCENT} />
+            <Text style={{ color: ACCENT, fontSize: 13, fontWeight: '700' }}>aistudio.google.com/app/apikey</Text>
+          </Pressable>
           <TextInput
             style={s.keyInput}
             value={keyInput}
             onChangeText={setKeyInput}
-            placeholder="sk-..."
-            placeholderTextColor="rgba(100,200,255,0.3)"
+            placeholder="Paste your Gemini API key here..."
+            placeholderTextColor={`rgba(125,249,255,0.3)`}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Pressable onPress={saveKey} style={s.keyBtn}>
-            <Text style={s.keyBtnText}>Activate JARVIS</Text>
+          <Pressable onPress={saveKey} style={s.activateBtn}>
+            <Text style={s.activateBtnText}>Activate N.O.V.A ⚡</Text>
           </Pressable>
           {showKeyModal && (
-            <Pressable onPress={() => setShowKeyModal(false)} style={{ marginTop: 10 }}>
-              <Text style={{ color: 'rgba(100,200,255,0.5)', textAlign: 'center', fontSize: 13 }}>Cancel</Text>
+            <Pressable onPress={() => setShowKeyModal(false)}>
+              <Text style={{ color: `rgba(125,249,255,0.4)`, textAlign: 'center', fontSize: 13 }}>Cancel</Text>
             </Pressable>
           )}
         </View>
-        <Text style={s.keyNote}>Your key is stored locally on-device only.</Text>
+        <Text style={{ color: `rgba(125,249,255,0.25)`, fontSize: 11, textAlign: 'center' }}>
+          Your key is saved locally on your device only.
+        </Text>
       </View>
     );
   }
 
-  // ── MAIN JARVIS CHAT
+  // ── MAIN CHAT
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#020c18' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+    <KeyboardAvoidingView style={[s.fill, { backgroundColor: BG }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
       <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Animated.View style={[s.reactorMini, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={s.reactorMiniCore} />
-          </Animated.View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Orb size={36} />
           <View>
-            <Text style={s.headerTitle}>J.A.R.V.I.S</Text>
-            <Text style={s.headerStatus}>{thinking || isTyping ? '● Processing...' : '● Online — GPT-4o'}</Text>
+            <Text style={s.headerTitle}>N.O.V.A</Text>
+            <Text style={s.headerStatus}>
+              {thinking ? '● Processing...' : isTyping ? '● Responding...' : '● Online · 24/7'}
+            </Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 14 }}>
           <Pressable onPress={() => setShowKeyModal(true)}>
-            <Ionicons name="key-outline" size={20} color="rgba(100,200,255,0.6)" />
+            <Ionicons name="key-outline" size={20} color={`rgba(125,249,255,0.5)`} />
           </Pressable>
           <Pressable onPress={clearChat}>
-            <Ionicons name="trash-outline" size={20} color="rgba(100,200,255,0.6)" />
+            <Ionicons name="trash-outline" size={20} color={`rgba(125,249,255,0.5)`} />
           </Pressable>
         </View>
       </View>
@@ -205,79 +237,68 @@ export default function JarvisScreen() {
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 8, gap: 12 }}
+        contentContainerStyle={{ padding: 14, paddingBottom: 6, gap: 10 }}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Welcome state */}
+        {/* Welcome */}
         {messages.length === 0 && !isTyping && (
-          <View style={s.welcomeWrap}>
-            <Animated.View style={[s.reactorLarge, { transform: [{ scale: pulseAnim }] }]}>
-              <Animated.View style={[s.reactorRingLarge, { transform: [{ rotate: spin }], opacity: glowAnim }]} />
-              <View style={s.reactorCoreLarge}>
-                <View style={s.reactorInnerLarge} />
-              </View>
-            </Animated.View>
-            <Text style={s.welcomeTitle}>Good evening, sir.</Text>
-            <Text style={s.welcomeSub}>I'm JARVIS. Ask me anything — science, world events,{`\n`}philosophy, code, analysis, or just talk.</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16, marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+          <View style={{ alignItems: 'center', paddingTop: 24, gap: 10 }}>
+            <Orb size={140} />
+            <Text style={[s.novaTitle, { fontSize: 24, marginTop: 4 }]}>Good evening.</Text>
+            <Text style={{ color: `rgba(125,249,255,0.5)`, fontSize: 13, textAlign: 'center', lineHeight: 21, maxWidth: 280 }}>
+              I’m N.O.V.A — your Neural Omniscient Virtual Agent.{`\n`}
+              Ask me anything. I’m online 24/7.
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
               {QUICK_PROMPTS.map(q => (
                 <Pressable key={q.label} onPress={() => send(q.text)} style={s.chip}>
                   <Text style={s.chipText}>{q.label}</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           </View>
         )}
 
         {/* Message bubbles */}
         {messages.map(msg => (
-          <View key={msg.id} style={[s.msgRow, msg.role === 'user' ? s.msgRowUser : s.msgRowAssistant]}>
+          <View key={msg.id} style={[s.msgRow, msg.role === 'user' ? s.rowUser : s.rowAssist]}>
             {msg.role === 'assistant' && (
-              <View style={s.avatarWrap}>
-                <View style={s.avatarDot} />
-              </View>
+              <View style={s.dot}><View style={s.dotInner} /></View>
             )}
-            <View style={[
-              s.bubble,
-              msg.role === 'user' ? s.bubbleUser : s.bubbleAssistant,
-            ]}>
-              <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextAssistant]}>
-                {msg.content}
-              </Text>
-              <Text style={s.timestamp}>
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
+            <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleAssist, { maxWidth: width * 0.8 }]}>
+              <Text style={[s.msgText, msg.role === 'user' ? s.msgUser : s.msgAssist]}>{msg.content}</Text>
+              <Text style={s.time}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
           </View>
         ))}
 
-        {/* Typewriter effect for incoming response */}
+        {/* Typewriter */}
         {isTyping && typingText.length > 0 && (
-          <View style={[s.msgRow, s.msgRowAssistant]}>
-            <View style={s.avatarWrap}><View style={s.avatarDot} /></View>
-            <View style={[s.bubble, s.bubbleAssistant]}>
-              <Text style={[s.bubbleText, s.bubbleTextAssistant]}>{typingText}<Text style={s.cursor}>▌</Text></Text>
+          <View style={[s.msgRow, s.rowAssist]}>
+            <View style={s.dot}><View style={[s.dotInner, { backgroundColor: '#FFD700' }]} /></View>
+            <View style={[s.bubble, s.bubbleAssist, { maxWidth: width * 0.8 }]}>
+              <Text style={[s.msgText, s.msgAssist]}>{typingText}<Text style={{ color: ACCENT }}>|</Text></Text>
             </View>
           </View>
         )}
 
-        {/* Thinking indicator */}
+        {/* Thinking */}
         {thinking && (
-          <View style={[s.msgRow, s.msgRowAssistant]}>
-            <View style={s.avatarWrap}><View style={[s.avatarDot, { backgroundColor: '#ffd700' }]} /></View>
-            <View style={[s.bubble, s.bubbleAssistant, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-              <ActivityIndicator size="small" color="#64c8ff" />
-              <Text style={[s.bubbleText, s.bubbleTextAssistant, { opacity: 0.6 }]}>JARVIS is thinking...</Text>
+          <View style={[s.msgRow, s.rowAssist]}>
+            <View style={s.dot}><View style={[s.dotInner, { backgroundColor: '#FFD700' }]} /></View>
+            <View style={[s.bubble, s.bubbleAssist, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+              <ActivityIndicator size="small" color={ACCENT} />
+              <Text style={[s.msgText, s.msgAssist, { opacity: 0.5 }]}>N.O.V.A is thinking…</Text>
             </View>
           </View>
         )}
       </ScrollView>
 
-      {/* Quick prompts when chat is active */}
+      {/* Inline quick prompts */}
       {messages.length > 0 && !thinking && !isTyping && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, marginBottom: 4 }} contentContainerStyle={{ paddingHorizontal: 12, gap: 8, alignItems: 'center' }}>
-          {QUICK_PROMPTS.slice(0, 5).map(q => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44, marginBottom: 2 }} contentContainerStyle={{ paddingHorizontal: 12, gap: 8, alignItems: 'center' }}>
+          {QUICK_PROMPTS.slice(0, 6).map(q => (
             <Pressable key={q.label} onPress={() => send(q.text)} style={[s.chip, { paddingVertical: 6 }]}>
               <Text style={[s.chipText, { fontSize: 11 }]}>{q.label}</Text>
             </Pressable>
@@ -285,27 +306,27 @@ export default function JarvisScreen() {
         </ScrollView>
       )}
 
-      {/* Input bar */}
+      {/* Input */}
       <View style={s.inputBar}>
         <TextInput
           ref={inputRef}
           style={s.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Ask JARVIS anything..."
-          placeholderTextColor="rgba(100,200,255,0.3)"
+          placeholder="Ask N.O.V.A anything..."
+          placeholderTextColor={`rgba(125,249,255,0.28)`}
           multiline
-          maxLength={2000}
+          maxLength={3000}
           returnKeyType="send"
           onSubmitEditing={() => send()}
           blurOnSubmit={false}
         />
         <Pressable
           onPress={() => send()}
-          style={[s.sendBtn, (!input.trim() || thinking) && { opacity: 0.35 }]}
+          style={[s.sendBtn, (!input.trim() || thinking) && { opacity: 0.3 }]}
           disabled={!input.trim() || thinking}
         >
-          <Ionicons name="send" size={18} color="#020c18" />
+          <Ionicons name="send" size={17} color={BG} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -313,66 +334,34 @@ export default function JarvisScreen() {
 }
 
 const s = StyleSheet.create({
-  // Key setup screen
-  keyScreen:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  jarvisTitle:    { color: '#64c8ff', fontSize: 28, fontWeight: '900', letterSpacing: 8, marginTop: 8 },
-  jarvisSub:      { color: 'rgba(100,200,255,0.45)', fontSize: 12, letterSpacing: 2, textAlign: 'center', marginTop: -8 },
-  keyCard:        { backgroundColor: 'rgba(100,200,255,0.06)', borderWidth: 1, borderColor: 'rgba(100,200,255,0.15)', borderRadius: 20, padding: 20, width: '100%', gap: 12, marginTop: 8 },
-  keyCardTitle:   { color: '#64c8ff', fontSize: 17, fontWeight: '700', textAlign: 'center' },
-  keyCardSub:     { color: 'rgba(100,200,255,0.55)', fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  keyInput:       { backgroundColor: 'rgba(100,200,255,0.08)', borderWidth: 1, borderColor: 'rgba(100,200,255,0.2)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, color: '#64c8ff', fontSize: 14, fontFamily: 'monospace' },
-  keyBtn:         { backgroundColor: '#64c8ff', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  keyBtnText:     { color: '#020c18', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
-  keyNote:        { color: 'rgba(100,200,255,0.3)', fontSize: 11, textAlign: 'center', marginTop: -4 },
-
-  // Arc reactor
-  reactorWrap:    { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
-  reactorRing:    { position: 'absolute', width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: '#64c8ff', borderStyle: 'dashed' },
-  reactorCore:    { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(100,200,255,0.12)', borderWidth: 2, borderColor: '#64c8ff', alignItems: 'center', justifyContent: 'center' },
-  reactorInner:   { width: 28, height: 28, borderRadius: 14, backgroundColor: '#64c8ff', shadowColor: '#64c8ff', shadowOpacity: 1, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
-
-  // Mini reactor (header)
-  reactorMini:    { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  reactorMiniCore:{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(100,200,255,0.15)', borderWidth: 1.5, borderColor: '#64c8ff', alignItems: 'center', justifyContent: 'center' },
-
-  // Large reactor (welcome)
-  reactorLarge:   { width: 130, height: 130, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  reactorRingLarge: { position: 'absolute', width: 126, height: 126, borderRadius: 63, borderWidth: 1.5, borderColor: '#64c8ff', borderStyle: 'dashed' },
-  reactorCoreLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(100,200,255,0.1)', borderWidth: 2, borderColor: '#64c8ff', alignItems: 'center', justifyContent: 'center' },
-  reactorInnerLarge:{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#64c8ff', shadowColor: '#64c8ff', shadowOpacity: 1, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } },
-
-  // Header
-  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(100,200,255,0.1)', backgroundColor: '#020c18' },
-  headerLeft:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerTitle:    { color: '#64c8ff', fontSize: 16, fontWeight: '900', letterSpacing: 4 },
-  headerStatus:   { color: 'rgba(100,200,255,0.5)', fontSize: 10, letterSpacing: 1, marginTop: 1 },
-
-  // Welcome
-  welcomeWrap:    { alignItems: 'center', paddingTop: 20, gap: 6 },
-  welcomeTitle:   { color: '#64c8ff', fontSize: 22, fontWeight: '800', letterSpacing: 1 },
-  welcomeSub:     { color: 'rgba(100,200,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 20 },
-
-  // Chips
-  chip:           { backgroundColor: 'rgba(100,200,255,0.08)', borderWidth: 1, borderColor: 'rgba(100,200,255,0.2)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  chipText:       { color: '#64c8ff', fontSize: 12, fontWeight: '600' },
-
-  // Messages
-  msgRow:         { flexDirection: 'row', gap: 8, maxWidth: width - 32 },
-  msgRowUser:     { justifyContent: 'flex-end', alignSelf: 'flex-end' },
-  msgRowAssistant:{ justifyContent: 'flex-start', alignSelf: 'flex-start' },
-  avatarWrap:     { width: 24, alignItems: 'center', paddingTop: 4 },
-  avatarDot:      { width: 10, height: 10, borderRadius: 5, backgroundColor: '#64c8ff', shadowColor: '#64c8ff', shadowOpacity: 0.8, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
-  bubble:         { maxWidth: width * 0.78, borderRadius: 18, padding: 12, paddingBottom: 8 },
-  bubbleUser:     { backgroundColor: '#64c8ff', borderBottomRightRadius: 4 },
-  bubbleAssistant:{ backgroundColor: 'rgba(100,200,255,0.08)', borderWidth: 1, borderColor: 'rgba(100,200,255,0.15)', borderBottomLeftRadius: 4 },
-  bubbleText:     { fontSize: 14, lineHeight: 22 },
-  bubbleTextUser: { color: '#020c18', fontWeight: '500' },
-  bubbleTextAssistant: { color: 'rgba(200,235,255,0.92)' },
-  timestamp:      { fontSize: 10, opacity: 0.4, marginTop: 4, color: 'inherit' },
-  cursor:         { color: '#64c8ff', opacity: 0.8 },
-
-  // Input
-  inputBar:       { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(100,200,255,0.1)', backgroundColor: '#020c18' },
-  input:          { flex: 1, backgroundColor: 'rgba(100,200,255,0.07)', borderWidth: 1, borderColor: 'rgba(100,200,255,0.18)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, color: 'rgba(200,235,255,0.92)', fontSize: 14, maxHeight: 120, minHeight: 42 },
-  sendBtn:        { width: 42, height: 42, borderRadius: 21, backgroundColor: '#64c8ff', alignItems: 'center', justifyContent: 'center', shadowColor: '#64c8ff', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
+  fill:         { flex: 1 },
+  card:         { backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 20, padding: 20 },
+  cardTitle:    { color: ACCENT, fontSize: 17, fontWeight: '800' },
+  cardSub:      { color: `rgba(125,249,255,0.5)`, fontSize: 13, lineHeight: 21 },
+  linkBtn:      { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `rgba(125,249,255,0.08)`, borderWidth: 1, borderColor: BORDER, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, justifyContent: 'center' },
+  keyInput:     { backgroundColor: `rgba(125,249,255,0.07)`, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: ACCENT, fontSize: 13, fontFamily: 'monospace' },
+  activateBtn:  { backgroundColor: ACCENT, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  activateBtnText: { color: BG, fontWeight: '900', fontSize: 15, letterSpacing: 1 },
+  novaTitle:    { color: ACCENT, fontSize: 30, fontWeight: '900', letterSpacing: 10 },
+  novaSub:      { color: `rgba(125,249,255,0.4)`, fontSize: 11, letterSpacing: 2.5, marginTop: -12 },
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 58, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: `rgba(125,249,255,0.1)`, backgroundColor: BG },
+  headerTitle:  { color: ACCENT, fontSize: 15, fontWeight: '900', letterSpacing: 5 },
+  headerStatus: { color: `rgba(125,249,255,0.45)`, fontSize: 10, letterSpacing: 1 },
+  chip:         { backgroundColor: `rgba(125,249,255,0.07)`, borderWidth: 1, borderColor: BORDER, borderRadius: 20, paddingHorizontal: 13, paddingVertical: 7 },
+  chipText:     { color: ACCENT, fontSize: 12, fontWeight: '600' },
+  msgRow:       { flexDirection: 'row', gap: 8 },
+  rowUser:      { justifyContent: 'flex-end', alignSelf: 'flex-end' },
+  rowAssist:    { justifyContent: 'flex-start', alignSelf: 'flex-start' },
+  dot:          { width: 22, alignItems: 'center', paddingTop: 6 },
+  dotInner:     { width: 10, height: 10, borderRadius: 5, backgroundColor: ACCENT, shadowColor: ACCENT, shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  bubble:       { borderRadius: 18, padding: 12, paddingBottom: 8 },
+  bubbleUser:   { backgroundColor: ACCENT, borderBottomRightRadius: 4 },
+  bubbleAssist: { backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderBottomLeftRadius: 4 },
+  msgText:      { fontSize: 14, lineHeight: 22 },
+  msgUser:      { color: BG, fontWeight: '500' },
+  msgAssist:    { color: `rgba(200,245,255,0.92)` },
+  time:         { fontSize: 10, opacity: 0.35, marginTop: 4, color: ACCENT },
+  inputBar:     { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: `rgba(125,249,255,0.1)`, backgroundColor: BG },
+  input:        { flex: 1, backgroundColor: `rgba(125,249,255,0.06)`, borderWidth: 1, borderColor: `rgba(125,249,255,0.16)`, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, color: `rgba(200,245,255,0.92)`, fontSize: 14, maxHeight: 120, minHeight: 42 },
+  sendBtn:      { width: 42, height: 42, borderRadius: 21, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center', shadowColor: ACCENT, shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
 });

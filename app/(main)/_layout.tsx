@@ -26,11 +26,14 @@ export default function MainTabs() {
       <Tabs.Screen name="watch" options={{ title: 'Watch', tabBarIcon: ({ color, size }) => <Ionicons name="tv" color={color} size={size - 2} /> }} />
       <Tabs.Screen name="media" options={{ title: 'Media', tabBarIcon: ({ color, size }) => <Ionicons name="musical-notes" color={color} size={size - 2} /> }} />
       <Tabs.Screen name="abyss" options={{ title: 'Abyss', tabBarIcon: ({ color, size }) => <Ionicons name="eye-off" color={color} size={size - 2} /> }} />
-      <Tabs.Screen name="jarvis" options={{
-        title: 'JARVIS',
-        tabBarIcon: ({ color, size }) => <Ionicons name="hardware-chip" color={color} size={size - 2} />,
-        tabBarActiveTintColor: '#64c8ff',
-      }} />
+      <Tabs.Screen
+        name="jarvis"
+        options={{
+          title: 'N.O.V.A',
+          tabBarIcon: ({ color, size }) => <Ionicons name="hardware-chip" color={color} size={size - 2} />,
+          tabBarActiveTintColor: '#7DF9FF',
+        }}
+      />
       <Tabs.Screen name="premium" options={{ title: 'Premium', tabBarIcon: ({ color, size }) => <Ionicons name="star" color={color} size={size - 2} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ color, size }) => <Ionicons name="settings-sharp" color={color} size={size - 2} /> }} />
     </Tabs>
