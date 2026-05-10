@@ -10,29 +10,22 @@ const config: Config = {
         foreground: 'var(--color-text)',
         border: 'var(--color-border)',
         accent: {
-          nova: '#00D4FF',
-          abyssRed: '#8B0000',
-          abyssPurple: '#6B21A8'
-        }
+          nova: 'var(--nova-cyan)',
+          abyssPurple: 'var(--nova-purple)',
+          abyssRed: 'var(--nova-magenta)',
+          gold: 'var(--nova-gold)',
+        },
       },
-      borderRadius: {
-        sm: '6px',
-        md: '10px',
-        lg: '16px',
-        xl: '24px'
-      },
+      borderRadius: { sm: '6px', md: '10px', lg: '12px', xl: '16px' },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace']
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains-mono)', 'ui-monospace', 'monospace'],
+        display: ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
       },
-      minHeight: {
-        touch: '44px'
-      },
-      minWidth: {
-        touch: '44px'
-      }
-    }
-  }
+      minHeight: { touch: '44px' },
+      minWidth: { touch: '44px' },
+    },
+  },
 };
 
 export default config;

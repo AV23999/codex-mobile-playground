@@ -1,16 +1,7 @@
 import * as React from 'react';
 
 export function Card({ hoverable = false, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { hoverable?: boolean }) {
-  return (
-    <div
-      className={`rounded-xl border border-border bg-surface/90 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.28)] ${
-        hoverable
-          ? 'transition duration-300 hover:-translate-y-1 hover:border-[rgba(0,212,255,0.3)] hover:shadow-[0_12px_34px_rgba(0,212,255,0.12)]'
-          : ''
-      } ${className ?? ''}`}
-      {...props}
-    />
-  );
+  return <div className={`rounded-lg border border-border bg-[color:var(--nova-panel)] ${hoverable ? 'transition duration-200 hover:border-[color:var(--nova-border-glow)] hover:shadow-[0_0_24px_rgba(0,245,255,0.06)]' : ''} ${className ?? ''}`} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
