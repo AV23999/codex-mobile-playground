@@ -1,21 +1,33 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
-import { LayoutShell } from '@/components/layout-shell';
+import { JetBrains_Mono, Rajdhani } from 'next/font/google';
 import './globals.css';
+import { LayoutShell } from '@/components/layout-shell';
 
-const inter = Inter({ variable: '--font-inter', subsets: ['latin'] });
-const jetbrainsMono = JetBrains_Mono({ variable: '--font-jetbrains-mono', subsets: ['latin'] });
-const spaceGrotesk = Space_Grotesk({ variable: '--font-space-grotesk', subsets: ['latin'] });
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+});
+
+const rajdhani = Rajdhani({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-rajdhani',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'N.O.V.A',
   description: 'Neural Operative Virtual Assistant',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+    <html lang="en" className={`${jetbrainsMono.variable} ${rajdhani.variable}`}>
+      <body>
         <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
