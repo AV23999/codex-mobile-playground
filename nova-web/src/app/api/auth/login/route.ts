@@ -1,33 +1,37 @@
 import { NextResponse } from 'next/server';
-import { verifyUser } from '@/lib/user-store';
+
+// Hardcoded credentials — swap for DB lookup when ready
+const USERS = [
+  { id: 'u1', name: 'Akash', email: 'operator@nova.ai', password: 'nova2025' },
+];
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const email = typeof body?.email === 'string' ? body.email.trim() : '';
-    const password = typeof body?.password === 'string' ? body.password : '';
+    const body = await request.json().catch(() => ({}));
+    const email = String(body?.email ?? '').toLowerCase().trim();
+    const password = String(body?.password ?? '');
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
     }
 
-    const user = verifyUser(email, password);
+    const user = USERS.find((u) => u.email === email && u.password === password);
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
-    const token = Buffer.from(JSON.stringify({ id: user.id, email: user.email, name: user.name })).toString('base64');
+    const token = Buffer.from(`${user.id}:${user.email}`).toString('base64');
 
-    const response = NextResponse.json({ ok: true, user: { name: user.name, email: user.email } });
-    response.cookies.set('nova-session', token, {
+    const res = NextResponse.json({ ok: true, user: { name: user.name, email: user.email } });
+    res.cookies.set('nova-session', token, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
       secure: process.env.NODE_ENV === 'production',
     });
-    return response;
+    return res;
   } catch {
-    return NextResponse.json({ error: 'Server error. Please try again.' }, { status: 500 });
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 });
   }
 }
