@@ -457,7 +457,7 @@ export default function NovaAgentScreen() {
         </View>
         <View style={{flexDirection:'row',gap:14,alignItems:'center'}}>
           <Pressable onPress={() => { setShowMemory(!showMemory); setShowPersonality(false); }}>
-            <Ionicons name="brain-outline" size={20} color={memories.length > 0 ? accentColor : 'rgba(125,249,255,0.3)'} />
+            <Ionicons name="hardware-chip-outline" size={20} color={memories.length > 0 ? accentColor : 'rgba(125,249,255,0.3)'} />
           </Pressable>
           <Pressable onPress={() => { setShowPersonality(!showPersonality); setShowMemory(false); }}>
             <Text style={{ fontSize:16 }}>{PERSONALITY_CONFIG[personality].icon}</Text>
