@@ -19,10 +19,7 @@ const rajdhani = Rajdhani({
 export const metadata: Metadata = {
   title: 'N.O.V.A',
   description: 'Neural Operative Virtual Assistant',
-  icons: [
-    { rel: 'icon', url: '/favicon.svg', type: 'image/svg+xml' },
-    { rel: 'shortcut icon', url: '/favicon.svg', type: 'image/svg+xml' },
-  ],
+  icons: [{ rel: 'icon', url: '/favicon.svg', type: 'image/svg+xml' }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
