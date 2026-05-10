@@ -11,35 +11,14 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 export function Input({ label, helperText, error, iconLeft, iconRight, className, id, ...props }: InputProps) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-') ?? undefined;
   return (
-    <div className="space-y-1.5">
-      {label ? (
-        <label
-          htmlFor={inputId}
-          className="block text-[11px] font-medium uppercase tracking-widest text-[var(--color-muted)]"
-        >
-          {label}
-        </label>
-      ) : null}
-      <div
-        className={`flex min-h-[44px] items-center gap-2 rounded-lg border px-3 backdrop-blur-sm transition-all duration-200 ${
-          error
-            ? 'border-[#ff2d78] shadow-[0_0_0_2px_rgba(255,45,120,0.15)]'
-            : 'border-[var(--color-border)] focus-within:border-[rgba(0,212,255,0.5)] focus-within:shadow-[0_0_0_3px_rgba(0,212,255,0.12)]'
-        } bg-white/[0.03]`}
-      >
+    <div className="space-y-1">
+      {label ? <label htmlFor={inputId} className="text-mono-ui text-[11px] uppercase tracking-[0.1em] text-[color:var(--nova-text-faint)]">{label}</label> : null}
+      <div className={`flex min-h-touch items-center gap-2 rounded-md border px-3 ${error ? 'border-[color:var(--nova-magenta)]' : 'border-border'} bg-white/[0.03]`}>
         {iconLeft}
-        <input
-          id={inputId}
-          className={`w-full bg-transparent py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)]/50 ${className ?? ''}`}
-          {...props}
-        />
+        <input id={inputId} className={`w-full bg-transparent py-2 text-sm text-[color:var(--nova-text-primary)] outline-none placeholder:text-[color:var(--nova-text-faint)] focus-visible:ring-0 ${className ?? ''}`} {...props} />
         {iconRight}
       </div>
-      {error ? (
-        <p className="text-xs text-[#ff2d78]">{error}</p>
-      ) : helperText ? (
-        <p className="text-xs text-[var(--color-muted)]">{helperText}</p>
-      ) : null}
+      {error ? <p className="text-xs text-[color:var(--nova-magenta)]">{error}</p> : helperText ? <p className="text-xs text-[color:var(--nova-text-secondary)]">{helperText}</p> : null}
     </div>
   );
 }

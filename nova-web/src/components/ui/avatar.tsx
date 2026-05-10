@@ -1,73 +1,43 @@
-'use client';
-
-import Image from 'next/image';
 import * as React from 'react';
 
-type AvatarSize = 'sm' | 'md' | 'lg';
-type AvatarStatus = 'online' | 'away' | 'offline';
-
-const sizeMap: Record<AvatarSize, string> = {
-  sm: 'h-8 w-8 text-xs',
-  md: 'h-10 w-10 text-sm',
-  lg: 'h-14 w-14 text-base',
-};
-
-const pixelSize: Record<AvatarSize, number> = {
-  sm: 32,
-  md: 40,
-  lg: 56,
-};
-
-const statusMap: Record<AvatarStatus, string> = {
-  online: 'bg-accent-nova',
-  away: 'bg-accent-abyssPurple',
-  offline: 'bg-border',
-};
-
-const getInitials = (name: string) => {
-  const parts = name.trim().split(' ').filter(Boolean);
-  const first = parts[0]?.[0] ?? '';
-  const second = parts[1]?.[0] ?? '';
-  return `${first}${second}`.toUpperCase() || 'NV';
-};
-
-export function Avatar({
-  src,
-  name,
-  size = 'md',
-  status,
-}: {
-  src?: string;
+type AvatarProps = {
   name: string;
-  size?: AvatarSize;
-  status?: AvatarStatus;
-}) {
-  const [hasError, setHasError] = React.useState(false);
-  const initials = getInitials(name);
+  size?: 'sm' | 'md';
+  className?: string;
+};
 
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0][0]?.toUpperCase() ?? '?';
+  return ((words[0][0] ?? '') + (words[words.length - 1][0] ?? '')).toUpperCase();
+}
+
+export function Avatar({ name, size = 'md', className }: AvatarProps) {
+  const dim = size === 'sm' ? 28 : 36;
+  const fontSize = size === 'sm' ? '11px' : '14px';
   return (
-    <div className="relative inline-flex">
-      {src && !hasError ? (
-        <Image
-          src={src}
-          alt={name}
-          width={pixelSize[size]}
-          height={pixelSize[size]}
-          className={`${sizeMap[size]} rounded-full border border-border object-cover`}
-          onError={() => setHasError(true)}
-        />
-      ) : (
-        <div
-          className={`${sizeMap[size]} inline-flex items-center justify-center rounded-full border border-border bg-surface font-semibold`}
-        >
-          {initials}
-        </div>
-      )}
-      {status ? (
-        <span
-          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border border-surface ${statusMap[status]}`}
-        />
-      ) : null}
-    </div>
+    <span
+      className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: dim,
+        height: dim,
+        minWidth: dim,
+        borderRadius: '50%',
+        background: 'rgba(0,245,255,0.1)',
+        border: '1px solid rgba(0,245,255,0.2)',
+        color: 'var(--nova-cyan)',
+        fontFamily: 'var(--font-jetbrains-mono), monospace',
+        fontSize,
+        fontWeight: 500,
+        letterSpacing: '0.04em',
+        userSelect: 'none',
+      }}
+      aria-label={name}
+    >
+      {getInitials(name)}
+    </span>
   );
 }
