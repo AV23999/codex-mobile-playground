@@ -8,10 +8,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  SafeAreaView,
   Animated,
   Easing,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -51,23 +51,32 @@ function PulsingRing() {
       ])
     ).start();
   }, []);
-  return (
-    <Animated.View style={[styles.pulseRing, { transform: [{ scale }], opacity }]} />
-  );
+  return <Animated.View style={[styles.pulseRing, { transform: [{ scale }], opacity }]} />;
 }
 
 function JarvisAvatar() {
   return (
     <View style={styles.jarvisAvatarWrap}>
       <PulsingRing />
-      <LinearGradient
-        colors={['#0d2f35', '#0a4a52', '#0d2f35']}
-        style={styles.jarvisAvatar}
-      >
+      <LinearGradient colors={['#0d2f35', '#0a4a52', '#0d2f35']} style={styles.jarvisAvatar}>
         <Text style={styles.jarvisAvatarText}>J</Text>
       </LinearGradient>
     </View>
   );
+}
+
+function TypingDot({ delay }: { delay: number }) {
+  const opacity = useRef(new Animated.Value(0.2)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.2, duration: 300, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[styles.dot, { opacity }]} />;
 }
 
 export default function JarvisScreen() {
@@ -75,7 +84,6 @@ export default function JarvisScreen() {
   const [value, setValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const inputAnim = useRef(new Animated.Value(0)).current;
 
   const canSend = useMemo(() => value.trim().length > 0 && !isLoading, [value, isLoading]);
 
@@ -124,8 +132,7 @@ export default function JarvisScreen() {
       const data = await res.json();
 
       if (!res.ok) {
-        const errText = data?.error?.message ?? `HTTP ${res.status}`;
-        throw new Error(errText);
+        throw new Error(data?.error?.message ?? `HTTP ${res.status}`);
       }
 
       const reply = data.choices?.[0]?.message?.content ?? 'No response received.';
@@ -145,14 +152,9 @@ export default function JarvisScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Custom Header */}
       <LinearGradient colors={['#050d10', '#0a1a20']} style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerDot} />
@@ -185,9 +187,7 @@ export default function JarvisScreen() {
               <View style={[styles.row, isUser ? styles.rowUser : styles.rowAssistant]}>
                 {!isUser && <JarvisAvatar />}
                 <View style={isUser ? styles.userMsgWrap : styles.assistantMsgWrap}>
-                  {!isUser && (
-                    <Text style={styles.senderLabel}>JARVIS · {item.timestamp}</Text>
-                  )}
+                  {!isUser && <Text style={styles.senderLabel}>JARVIS · {item.timestamp}</Text>}
                   {isUser ? (
                     <LinearGradient
                       colors={['#0e6e7a', '#0a9aad']}
@@ -215,7 +215,7 @@ export default function JarvisScreen() {
           }}
           ListFooterComponent={
             isLoading ? (
-              <View style={styles.rowAssistant}>
+              <View style={[styles.row, styles.rowAssistant]}>
                 <JarvisAvatar />
                 <View style={styles.assistantMsgWrap}>
                   <Text style={styles.senderLabel}>JARVIS · processing</Text>
@@ -234,7 +234,6 @@ export default function JarvisScreen() {
           }
         />
 
-        {/* Input Bar */}
         <LinearGradient colors={['#050d10', '#0a1a20']} style={styles.inputBar}>
           <View style={styles.inputWrap}>
             <Text style={styles.inputPrefix}>&gt;_</Text>
@@ -271,40 +270,15 @@ export default function JarvisScreen() {
   );
 }
 
-function TypingDot({ delay }: { delay: number }) {
-  const opacity = useRef(new Animated.Value(0.2)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.2, duration: 300, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return <Animated.View style={[styles.dot, { opacity }]} />;
-}
-
 const C = {
-  bg: '#040b0e',
-  surface: '#071318',
-  surface2: '#0a1c22',
-  border: '#0d3a44',
-  borderGlow: '#0a9aad',
-  cyan: '#0a9aad',
-  cyanDim: '#0e6e7a',
-  cyanFaint: '#062830',
-  text: '#a8e6ef',
-  textMuted: '#3a8a96',
-  textFaint: '#1e4a52',
-  userText: '#e0f7fa',
+  bg: '#040b0e', surface: '#071318', border: '#0d3a44', borderGlow: '#0a9aad',
+  cyan: '#0a9aad', cyanDim: '#0e6e7a', cyanFaint: '#062830',
+  text: '#a8e6ef', textMuted: '#3a8a96', textFaint: '#1e4a52', userText: '#e0f7fa',
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   flex: { flex: 1, backgroundColor: C.bg },
-
-  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
@@ -317,84 +291,33 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, letterSpacing: 6, color: C.cyan, fontWeight: '700' },
   headerRight: {},
   headerStatus: { fontSize: 10, color: '#00ff88', letterSpacing: 1 },
-
-  // Messages
   list: { padding: 16, paddingBottom: 8, gap: 16 },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   rowUser: { justifyContent: 'flex-end' },
   rowAssistant: { justifyContent: 'flex-start' },
-
-  // Jarvis Avatar
   jarvisAvatarWrap: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  pulseRing: {
-    position: 'absolute', width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1.5, borderColor: C.cyan,
-  },
-  jarvisAvatar: {
-    width: 34, height: 34, borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: C.borderGlow,
-  },
+  pulseRing: { position: 'absolute', width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: C.cyan },
+  jarvisAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.borderGlow },
   jarvisAvatarText: { color: C.cyan, fontSize: 14, fontWeight: '800', letterSpacing: 1 },
-
-  // User Avatar
-  userAvatar: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: C.cyanFaint, borderWidth: 1, borderColor: C.cyanDim,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  userAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.cyanFaint, borderWidth: 1, borderColor: C.cyanDim, alignItems: 'center', justifyContent: 'center' },
   userAvatarText: { color: C.cyan, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-
-  // Message Wrappers
   userMsgWrap: { alignItems: 'flex-end', maxWidth: '72%' },
   assistantMsgWrap: { flex: 1, maxWidth: '80%' },
   senderLabel: { fontSize: 9, color: C.textMuted, letterSpacing: 2, marginBottom: 5, marginLeft: 2 },
-
-  // Bubbles
   bubbleUser: { borderRadius: 16, borderTopRightRadius: 4, paddingHorizontal: 14, paddingVertical: 10 },
   bubbleTextUser: { color: C.userText, fontSize: 14, lineHeight: 21 },
   timestampUser: { color: 'rgba(224,247,250,0.5)', fontSize: 10, marginTop: 4, textAlign: 'right' },
-
-  bubbleJarvis: {
-    backgroundColor: C.surface,
-    borderRadius: 16, borderTopLeftRadius: 4,
-    borderWidth: 1, borderColor: C.border,
-    paddingHorizontal: 14, paddingVertical: 10,
-    overflow: 'hidden',
-  },
-  bubbleJarvisBorder: {
-    position: 'absolute', left: 0, top: 0, bottom: 0, width: 2,
-    backgroundColor: C.cyan,
-    borderTopLeftRadius: 4, borderBottomLeftRadius: 16,
-  },
+  bubbleJarvis: { backgroundColor: C.surface, borderRadius: 16, borderTopLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 10, overflow: 'hidden' },
+  bubbleJarvisBorder: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, backgroundColor: C.cyan, borderTopLeftRadius: 4, borderBottomLeftRadius: 16 },
   bubbleTextJarvis: { color: C.text, fontSize: 14, lineHeight: 22 },
-
-  // Typing
-  typingBubble: {
-    backgroundColor: C.surface, borderRadius: 16, borderTopLeftRadius: 4,
-    borderWidth: 1, borderColor: C.border,
-    paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden',
-  },
+  typingBubble: { backgroundColor: C.surface, borderRadius: 16, borderTopLeftRadius: 4, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden' },
   typingDots: { flexDirection: 'row', gap: 5, marginBottom: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.cyan },
   typingLabel: { color: C.textMuted, fontSize: 11, letterSpacing: 1 },
-
-  // Input Bar
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: C.border,
-  },
-  inputWrap: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, gap: 6,
-  },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border },
+  inputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
   inputPrefix: { color: C.cyan, fontSize: 14, fontWeight: '700', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
-  input: {
-    flex: 1, color: C.text, fontSize: 14, maxHeight: 100,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
+  input: { flex: 1, color: C.text, fontSize: 14, maxHeight: 100, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   sendBtn: { borderRadius: 12, overflow: 'hidden' },
   sendBtnDisabled: {},
   sendBtnGradient: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
