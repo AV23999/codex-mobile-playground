@@ -16,7 +16,7 @@ const seedMessages: ChatMessage[] = [
   {
     id: 'm1',
     role: 'assistant',
-    text: 'Welcome back. I have your workspace context loaded and ready for today\'s tasks.',
+    text: 'Welcome back. I have your workspace context loaded and ready for today\u2019s tasks.',
     timestamp: '09:41',
   },
   {
@@ -39,14 +39,103 @@ const nowTime = () =>
 export default function JarvisPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(seedMessages);
   const [value, setValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const canSend = useMemo(() => value.trim().length > 0 && !isLoading, [value, isLoading]);
+  const canSend = useMemo(() => value.trim().length > 0, [value]);
+
+  const streamAssistantReply = async (content: string, snapshot: ChatMessage[]) => {
+    const placeholderId = `assistant-${Date.now()}`;
+    const history = snapshot
+      .slice(-10)
+      .map((item) => ({ role: item.role, content: item.text }));
+
+    setMessages((prev) => [
+      ...prev,
+      { id: placeholderId, role: 'assistant', text: 'thinking\u2026', timestamp: nowTime() },
+    ]);
+
+    try {
+      const response = await fetch('/api/jarvis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: content, history }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to stream response');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistantText = '';
+
+      while (true) {
+        const { done, value: chunk } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(chunk, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() ?? '';
+
+        for (const event of events) {
+          const line = event
+            .split('\n')
+            .find((entry) => entry.startsWith('data:'))
+            ?.replace(/^data:\s?/, '');
+
+          if (!line || line === '[DONE]') continue;
+
+          let delta = line;
+          if (line.startsWith('{')) {
+            try {
+              const json = JSON.parse(line) as {
+                choices?: Array<{ delta?: { content?: string } }>;
+              };
+              delta = json.choices?.[0]?.delta?.content ?? '';
+            } catch {
+              delta = line;
+            }
+          }
+
+          assistantText += delta;
+
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === placeholderId
+                ? { ...message, text: assistantText || 'thinking\u2026' }
+                : message,
+            ),
+          );
+        }
+      }
+
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === placeholderId
+            ? {
+                ...message,
+                text:
+                  assistantText.trim() ||
+                  'Jarvis is unavailable. Please try again.',
+              }
+            : message,
+        ),
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === placeholderId
+            ? { ...message, text: 'Jarvis is unavailable. Please try again.' }
+            : message,
+        ),
+      );
+    }
+  };
 
   const sendMessage = async () => {
     const content = value.trim();
@@ -59,42 +148,11 @@ export default function JarvisPage() {
       timestamp: nowTime(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const snapshot = [...messages, userMessage];
+    setMessages(snapshot);
     setValue('');
-    setIsLoading(true);
 
-    try {
-      const res = await fetch('/api/jarvis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        text: data.reply,
-        timestamp: nowTime(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      const errorMessage: ChatMessage = {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        text: 'I seem to be having trouble connecting right now. Please check your API key or try again.',
-        timestamp: nowTime(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
+    await streamAssistantReply(content, snapshot);
   };
 
   return (
@@ -139,19 +197,6 @@ export default function JarvisPage() {
               </div>
             );
           })}
-
-          {/* Typing indicator */}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex max-w-3xl items-end gap-2 flex-row">
-                <Avatar name="Jarvis" status="online" size="sm" />
-                <article className="rounded-lg px-4 py-3 border border-border bg-surface text-foreground">
-                  <p className="text-sm leading-relaxed text-foreground/50 italic">Jarvis is thinking...</p>
-                </article>
-              </div>
-            </div>
-          )}
-
           <div ref={listEndRef} />
         </div>
       </div>
@@ -159,23 +204,23 @@ export default function JarvisPage() {
       {/* Input bar */}
       <div className="rounded-lg border border-border bg-surface p-3">
         <Input
-          placeholder="Ask Jarvis anything..."
+          placeholder="Ask Jarvis anything\u2026"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              sendMessage();
+              void sendMessage();
             }
           }}
           iconRight={
             <Button
               variant="primary"
               size="sm"
-              onClick={sendMessage}
+              onClick={() => void sendMessage()}
               disabled={!canSend}
             >
-              {isLoading ? 'Sending...' : 'Send'}
+              Send
             </Button>
           }
         />
