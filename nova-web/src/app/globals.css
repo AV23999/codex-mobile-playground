@@ -1,39 +1,85 @@
 @import 'tailwindcss';
 
 :root {
-  --color-background: #0a0a0a;
-  --color-surface: #111111;
-  --color-text: #ededed;
-  --color-border: rgba(255, 255, 255, 0.08);
+  --color-background: #070a12;
+  --color-void: #04060d;
+  --color-surface: #101528;
+  --color-panel: #131a33;
+  --color-elevated: #182240;
+  --color-glass: rgba(18, 26, 50, 0.55);
+  --color-text: #eef4ff;
+  --color-muted: #a9b5d1;
+  --color-border: rgba(124, 153, 255, 0.2);
+  --accent-cyan: #00d4ff;
+  --accent-purple: #7c3aed;
+  --accent-magenta: #d946ef;
+  --accent-gold: #f7b955;
 }
 
 :root.light {
-  --color-background: #fafafa;
+  --color-background: #f5f7ff;
+  --color-void: #eff3ff;
   --color-surface: #ffffff;
-  --color-text: #171717;
-  --color-border: rgba(0, 0, 0, 0.08);
+  --color-panel: #f8faff;
+  --color-elevated: #ffffff;
+  --color-glass: rgba(255, 255, 255, 0.75);
+  --color-text: #121a31;
+  --color-muted: #455074;
+  --color-border: rgba(80, 100, 160, 0.2);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--color-background);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(0, 212, 255, 0.16), transparent 35%),
+    radial-gradient(circle at 85% 10%, rgba(124, 58, 237, 0.2), transparent 40%),
+    radial-gradient(circle at 65% 75%, rgba(217, 70, 239, 0.12), transparent 42%),
+    var(--color-background);
   color: var(--color-text);
 }
 
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  animation: ambient-pan 14s ease-in-out infinite alternate;
+}
+
+@keyframes ambient-pan {
+  from { transform: translateX(-8%); opacity: 0.5; }
+  to { transform: translateX(8%); opacity: 0.8; }
+}
+
+@keyframes scanline {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+
+.scanline-overlay {
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0, 245, 255, 0.012) 2px, rgba(0, 245, 255, 0.012) 4px
+  );
+  animation: scanline 8s linear infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
 :focus-visible {
-  outline: 2px solid #00d4ff;
+  outline: 2px solid var(--accent-cyan);
   outline-offset: 2px;
 }
 
-button,
-a,
-input,
-select,
-textarea {
-  min-height: 44px;
-}
+button, a, input, select, textarea { min-height: 44px; }

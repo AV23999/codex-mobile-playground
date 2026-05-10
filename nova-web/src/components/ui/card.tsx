@@ -1,14 +1,12 @@
 import * as React from 'react';
 
-export function Card({
-  hoverable = false,
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement> & { hoverable?: boolean }) {
+export function Card({ hoverable = false, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { hoverable?: boolean }) {
   return (
     <div
-      className={`rounded-lg border border-border bg-surface ${
-        hoverable ? 'transition hover:-translate-y-1 hover:shadow-lg' : ''
+      className={`rounded-xl border border-border bg-surface/90 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.28)] ${
+        hoverable
+          ? 'transition duration-300 hover:-translate-y-1 hover:border-[rgba(0,212,255,0.3)] hover:shadow-[0_12px_34px_rgba(0,212,255,0.12)]'
+          : ''
       } ${className ?? ''}`}
       {...props}
     />
