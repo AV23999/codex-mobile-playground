@@ -1,69 +1,73 @@
-import { Avatar, Badge, Button, Card, CardBody, CardFooter, CardHeader, Input, Tooltip } from '@/components/ui';
+import Link from 'next/link';
+import { Badge, Button, Card, CardBody } from '@/components/ui';
+
+const activities = [
+  { id: 'a1', icon: '\u25c9', label: 'Jarvis summarized migration priorities for today.', time: '10:14' },
+  { id: 'a2', icon: '\u25c8', label: 'Abyss stored a new architecture memory entry.', time: '09:52' },
+  { id: 'a3', icon: '\u2630', label: 'Product Team chat received 3 new updates.', time: '09:10' },
+  { id: 'a4', icon: '\u2605', label: 'Premium tier comparison draft reviewed.', time: 'Yesterday' },
+  { id: 'a5', icon: '\u2699', label: 'Theme preference toggled to dark-first.', time: 'Yesterday' },
+];
 
 export default function HomePage() {
   return (
     <section className="space-y-6">
-      <h2 className="text-3xl font-semibold">N.O.V.A UI Showcase</h2>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Buttons + Tooltip */}
-        <Card className="bg-background" hoverable>
-          <CardHeader><h3 className="text-lg font-semibold">Buttons + Tooltip</h3></CardHeader>
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <Button variant="primary" iconLeft={<span>✦</span>}>Launch</Button>
-            <Button variant="secondary" iconRight={<span>→</span>}>Secondary</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Tooltip content="Danger action" position="top">
-              <Button variant="danger" loading>Deleting</Button>
-            </Tooltip>
-          </CardBody>
-          <CardFooter>
-            <Button variant="ghost" size="sm">Small ghost</Button>
-            <Button variant="primary" size="lg">Large primary</Button>
-          </CardFooter>
-        </Card>
-
-        {/* Badges */}
-        <Card className="bg-background" hoverable>
-          <CardHeader><h3 className="text-lg font-semibold">Badges</h3></CardHeader>
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <Badge variant="default">Default</Badge>
-            <Badge variant="primary">Nova</Badge>
+      {/* Status row */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardBody className="space-y-2">
+            <p className="text-sm text-foreground/60">Jarvis</p>
+            <p className="text-2xl font-semibold">Active</p>
             <Badge variant="success">Online</Badge>
-            <Badge variant="warning">Away</Badge>
-            <Badge variant="danger">Offline</Badge>
           </CardBody>
         </Card>
-
-        {/* Input */}
-        <Card className="bg-background" hoverable>
-          <CardHeader><h3 className="text-lg font-semibold">Input</h3></CardHeader>
-          <CardBody className="space-y-4">
-            <Input label="Username" placeholder="nova_user" helperText="Your N.O.V.A display name" />
-            <Input label="API Key" placeholder="Enter key..." error="Invalid key format" />
+        <Card>
+          <CardBody className="space-y-2">
+            <p className="text-sm text-foreground/60">Abyss Entries</p>
+            <p className="text-2xl font-semibold">4 stored</p>
+            <Badge>Stable</Badge>
           </CardBody>
         </Card>
-
-        {/* Avatars */}
-        <Card className="bg-background" hoverable>
-          <CardHeader><h3 className="text-lg font-semibold">Avatars</h3></CardHeader>
-          <CardBody className="flex flex-wrap items-center gap-4">
-            <Avatar name="Nova Agent" size="sm" status="online" />
-            <Avatar name="Abyss Core" size="md" status="away" />
-            <Avatar name="System Root" size="lg" status="offline" />
-            <Avatar src="https://i.pravatar.cc/150?img=12" name="Jarvis" size="md" status="online" />
+        <Card>
+          <CardBody className="space-y-2">
+            <p className="text-sm text-foreground/60">Unread Messages</p>
+            <p className="text-2xl font-semibold">7</p>
+            <Badge variant="primary">Attention</Badge>
           </CardBody>
         </Card>
       </div>
 
-      {/* Tooltip demo row */}
-      <Card className="bg-background">
-        <CardHeader><h3 className="text-lg font-semibold">Tooltip Positions</h3></CardHeader>
-        <CardBody className="flex flex-wrap items-center justify-center gap-8 py-8">
-          <Tooltip content="Top tooltip" position="top"><Badge>Hover top</Badge></Tooltip>
-          <Tooltip content="Bottom tooltip" position="bottom"><Badge>Hover bottom</Badge></Tooltip>
-          <Tooltip content="Left tooltip" position="left"><Badge>Hover left</Badge></Tooltip>
-          <Tooltip content="Right tooltip" position="right"><Badge>Hover right</Badge></Tooltip>
+      {/* Quick actions */}
+      <Card>
+        <CardBody className="flex flex-wrap gap-3">
+          <Link href="/jarvis">
+            <Button variant="ghost">Ask Jarvis</Button>
+          </Link>
+          <Link href="/abyss">
+            <Button variant="ghost">Open Abyss</Button>
+          </Link>
+          <Link href="/chats">
+            <Button variant="ghost">View Chats</Button>
+          </Link>
+        </CardBody>
+      </Card>
+
+      {/* Recent activity */}
+      <Card>
+        <CardBody className="space-y-2">
+          <h2 className="text-lg font-semibold">Recent Activity</h2>
+          {activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex min-h-touch items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+            >
+              <div className="flex items-center gap-2">
+                <span aria-hidden>{activity.icon}</span>
+                <span className="text-sm">{activity.label}</span>
+              </div>
+              <span className="shrink-0 text-xs text-foreground/50">{activity.time}</span>
+            </div>
+          ))}
         </CardBody>
       </Card>
     </section>
