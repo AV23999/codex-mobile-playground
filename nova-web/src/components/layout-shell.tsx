@@ -2,12 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type NavItem = {
   href: string;
   label: string;
   icon: string;
+};
+
+type ContextData = {
+  title: string;
+  items: string[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -21,37 +26,63 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: '\u2699' },
 ];
 
-const PANEL_CONTENT: Record<string, string> = {
-  '/jarvis': 'Active session context, recent prompts, and memory hits appear here.',
-  '/abyss': 'Selected memory entry details and related tags surface here.',
-  '/chats': 'Conversation summary and shared files from the selected chat.',
-  '/settings': 'Your active preferences and last-changed settings.',
-  '/': 'N.O.V.A system status, recent activity, and quick actions.',
-};
-
-const PANEL_TITLES: Record<string, string> = {
-  '/jarvis': 'Jarvis Context',
-  '/abyss': 'Memory Context',
-  '/chats': 'Chat Context',
-  '/settings': 'Preferences',
-  '/': 'Overview',
-};
-
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [contextData, setContextData] = useState<ContextData>({
+    title: 'Loading\u2026',
+    items: [],
+  });
+  const [contextLoading, setContextLoading] = useState(false);
 
   const pageTitle = useMemo(() => {
     const active = NAV_ITEMS.find((item) => item.href === pathname);
     return active?.label ?? 'N.O.V.A';
   }, [pathname]);
 
-  const panelTitle = useMemo(() => PANEL_TITLES[pathname] ?? 'Context Panel', [pathname]);
-  const panelContent = useMemo(
-    () => PANEL_CONTENT[pathname] ?? 'Context for this section will appear here.',
-    [pathname],
+  useEffect(() => {
+    const fetchContext = async () => {
+      setContextLoading(true);
+      try {
+        const response = await fetch(
+          `/api/context?route=${encodeURIComponent(pathname)}`,
+        );
+        const payload = (await response.json()) as ContextData;
+        setContextData({
+          title: payload.title ?? 'Context',
+          items: Array.isArray(payload.items) ? payload.items : [],
+        });
+      } catch {
+        setContextData({
+          title: 'Context',
+          items: ['No context available for this section.'],
+        });
+      } finally {
+        setContextLoading(false);
+      }
+    };
+    void fetchContext();
+  }, [pathname]);
+
+  const ContextPanel = (
+    <>
+      <h2 className="mb-3 text-lg font-semibold">{contextData.title}</h2>
+      {contextLoading ? (
+        <p className="mb-2 text-sm text-foreground/50">Fetching context\u2026</p>
+      ) : null}
+      <ul className="space-y-2 text-sm text-foreground/80">
+        {contextData.items.map((item) => (
+          <li
+            key={item}
+            className="rounded-md border border-border bg-background px-2 py-2"
+          >
+            {item}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 
   return (
@@ -59,7 +90,9 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
       {/* Desktop layout */}
       <div
         className={`hidden min-h-screen transition-all md:grid ${
-          rightPanelOpen ? 'md:grid-cols-[240px_1fr_320px]' : 'md:grid-cols-[240px_1fr]'
+          rightPanelOpen
+            ? 'md:grid-cols-[240px_1fr_320px]'
+            : 'md:grid-cols-[240px_1fr]'
         }`}
       >
         {/* Left sidebar */}
@@ -100,7 +133,16 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         {/* Main canvas */}
         <section className="flex min-h-screen flex-col">
           <header className="flex min-h-touch items-center justify-between border-b border-border bg-surface px-6 py-3">
-            <h1 className="text-xl font-semibold">{pageTitle}</h1>
+            <div className="flex items-center gap-3">
+              <button
+                className="flex min-w-touch items-center justify-center rounded-md border border-border px-3 py-2 md:hidden"
+                onClick={() => setMobileSidebarOpen(true)}
+                aria-label="Open navigation"
+              >
+                \u2630
+              </button>
+              <h1 className="text-xl font-semibold">{pageTitle}</h1>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 className="min-h-touch min-w-touch rounded-md border border-border px-3 py-2 hover:bg-background"
@@ -129,8 +171,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
               : 'pointer-events-none -translate-x-4 opacity-0'
           }`}
         >
-          <h2 className="mb-3 text-lg font-semibold">{panelTitle}</h2>
-          <p className="text-sm text-foreground/80">{panelContent}</p>
+          {ContextPanel}
         </aside>
       </div>
 
@@ -185,7 +226,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
                 className="flex min-h-touch items-center gap-3 rounded-md px-3 py-2 hover:bg-background"
                 onClick={() => setMobileSidebarOpen(false)}
               >
-                <span>{item.icon}</span>
+                <span aria-hidden>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
             ))}
@@ -201,8 +242,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           }`}
         >
           <div className="mb-2 h-1 w-12 rounded-full bg-border" />
-          <h2 className="mb-2 text-lg font-semibold">{panelTitle}</h2>
-          <p className="text-sm text-foreground/80">{panelContent}</p>
+          {ContextPanel}
         </aside>
       </div>
     </div>
