@@ -34,7 +34,6 @@ export default function AbyssPage() {
 
   useEffect(() => {
     void loadMemories();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedMemory = useMemo(
@@ -63,7 +62,7 @@ export default function AbyssPage() {
         </CardHeader>
         <CardBody className="space-y-2">
           {loading ? (
-            <p className="text-sm text-foreground/60">Loading memories\u2026</p>
+            <p className="text-sm text-foreground/60">Loading memories…</p>
           ) : null}
 
           {!loading &&
