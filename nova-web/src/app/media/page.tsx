@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import NextImage from 'next/image';
 import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui';
 
 type MediaItem = { id: string; name: string; type: 'image' | 'audio' | 'doc'; size: string; added: string; url?: string };
@@ -78,7 +77,6 @@ export default function MediaPage() {
         )}
       </div>
 
-      {/* Preview panel */}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setPreview(null)}>
           <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
