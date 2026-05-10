@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import * as React from 'react';
 
 type AvatarSize = 'sm' | 'md' | 'lg';
@@ -9,6 +10,12 @@ const sizeMap: Record<AvatarSize, string> = {
   sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
   lg: 'h-14 w-14 text-base',
+};
+
+const pixelSize: Record<AvatarSize, number> = {
+  sm: 32,
+  md: 40,
+  lg: 56,
 };
 
 const statusMap: Record<AvatarStatus, string> = {
@@ -41,9 +48,11 @@ export function Avatar({
   return (
     <div className="relative inline-flex">
       {src && !hasError ? (
-        <img
+        <Image
           src={src}
           alt={name}
+          width={pixelSize[size]}
+          height={pixelSize[size]}
           className={`${sizeMap[size]} rounded-full border border-border object-cover`}
           onError={() => setHasError(true)}
         />
