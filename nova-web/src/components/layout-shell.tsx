@@ -11,15 +11,31 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/', label: 'Home', icon: '⌂' },
-  { href: '/jarvis', label: 'Jarvis', icon: '◉' },
-  { href: '/abyss', label: 'Abyss', icon: '◈' },
-  { href: '/chats', label: 'Chats', icon: '☰' },
-  { href: '/media', label: 'Media', icon: '▣' },
-  { href: '/watch', label: 'Watch', icon: '▶' },
-  { href: '/premium', label: 'Premium', icon: '★' },
-  { href: '/settings', label: 'Settings', icon: '⚙' },
+  { href: '/', label: 'Home', icon: '\u2302' },
+  { href: '/jarvis', label: 'Jarvis', icon: '\u25c9' },
+  { href: '/abyss', label: 'Abyss', icon: '\u25c8' },
+  { href: '/chats', label: 'Chats', icon: '\u2630' },
+  { href: '/media', label: 'Media', icon: '\u25a3' },
+  { href: '/watch', label: 'Watch', icon: '\u25b6' },
+  { href: '/premium', label: 'Premium', icon: '\u2605' },
+  { href: '/settings', label: 'Settings', icon: '\u2699' },
 ];
+
+const PANEL_CONTENT: Record<string, string> = {
+  '/jarvis': 'Active session context, recent prompts, and memory hits appear here.',
+  '/abyss': 'Selected memory entry details and related tags surface here.',
+  '/chats': 'Conversation summary and shared files from the selected chat.',
+  '/settings': 'Your active preferences and last-changed settings.',
+  '/': 'N.O.V.A system status, recent activity, and quick actions.',
+};
+
+const PANEL_TITLES: Record<string, string> = {
+  '/jarvis': 'Jarvis Context',
+  '/abyss': 'Memory Context',
+  '/chats': 'Chat Context',
+  '/settings': 'Preferences',
+  '/': 'Overview',
+};
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,22 +48,32 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     return active?.label ?? 'N.O.V.A';
   }, [pathname]);
 
+  const panelTitle = useMemo(() => PANEL_TITLES[pathname] ?? 'Context Panel', [pathname]);
+  const panelContent = useMemo(
+    () => PANEL_CONTENT[pathname] ?? 'Context for this section will appear here.',
+    [pathname],
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Desktop layout */}
-      <div className={`hidden min-h-screen transition-all md:grid ${
-        rightPanelOpen ? 'md:grid-cols-[240px_1fr_320px]' : 'md:grid-cols-[240px_1fr]'
-      }`}>
+      <div
+        className={`hidden min-h-screen transition-all md:grid ${
+          rightPanelOpen ? 'md:grid-cols-[240px_1fr_320px]' : 'md:grid-cols-[240px_1fr]'
+        }`}
+      >
         {/* Left sidebar */}
-        <aside className={`border-r border-border bg-surface p-4 ${
-          sidebarCollapsed ? 'w-16' : 'w-60'
-        } transition-all`}>
+        <aside
+          className={`border-r border-border bg-surface p-4 ${
+            sidebarCollapsed ? 'w-16' : 'w-60'
+          } transition-all`}
+        >
           <button
             className="mb-4 flex min-w-touch items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-background"
             onClick={() => setSidebarCollapsed((prev) => !prev)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <span className="text-accent-abyssPurple">◍</span>
+            <span className="text-accent-abyssPurple">\u25cd</span>
             {!sidebarCollapsed && <span className="font-semibold">N.O.V.A</span>}
           </button>
           <nav className="space-y-2">
@@ -103,8 +129,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
               : 'pointer-events-none -translate-x-4 opacity-0'
           }`}
         >
-          <h2 className="mb-3 text-lg font-semibold">Context Panel</h2>
-          <p className="text-sm text-foreground/80">Memory, history, and media context will appear here.</p>
+          <h2 className="mb-3 text-lg font-semibold">{panelTitle}</h2>
+          <p className="text-sm text-foreground/80">{panelContent}</p>
         </aside>
       </div>
 
@@ -116,7 +142,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open navigation"
           >
-            ☰
+            \u2630
           </button>
           <h1 className="text-lg font-semibold">{pageTitle}</h1>
           <button
@@ -148,7 +174,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileSidebarOpen(false)}
               aria-label="Close navigation"
             >
-              ✕
+              \u2715
             </button>
           </div>
           <nav className="space-y-2">
@@ -175,8 +201,8 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           }`}
         >
           <div className="mb-2 h-1 w-12 rounded-full bg-border" />
-          <h2 className="mb-2 text-lg font-semibold">Context Panel</h2>
-          <p className="text-sm text-foreground/80">Memory, history, and media context will appear here.</p>
+          <h2 className="mb-2 text-lg font-semibold">{panelTitle}</h2>
+          <p className="text-sm text-foreground/80">{panelContent}</p>
         </aside>
       </div>
     </div>
