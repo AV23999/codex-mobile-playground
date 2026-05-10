@@ -27,6 +27,14 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login';
+    }
+  };
+
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -85,6 +93,17 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
     </>
   );
 
+  const SignOutButton = (
+    <button
+      className="mt-auto flex min-h-touch w-full items-center gap-3 rounded-md px-3 py-2 text-foreground/60 transition hover:bg-background hover:text-foreground"
+      onClick={() => void handleSignOut()}
+      aria-label="Sign out"
+    >
+      <span aria-hidden>\u238b</span>
+      {!sidebarCollapsed && <span>Sign out</span>}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Desktop layout */}
@@ -97,7 +116,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
       >
         {/* Left sidebar */}
         <aside
-          className={`border-r border-border bg-surface p-4 ${
+          className={`flex flex-col border-r border-border bg-surface p-4 ${
             sidebarCollapsed ? 'w-16' : 'w-60'
           } transition-all`}
         >
@@ -128,6 +147,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          {SignOutButton}
         </aside>
 
         {/* Main canvas */}
@@ -204,7 +224,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           onClick={() => setMobileSidebarOpen(false)}
         />
         <aside
-          className={`fixed left-0 top-0 z-40 h-full w-60 border-r border-border bg-surface p-4 transition-transform ${
+          className={`fixed left-0 top-0 z-40 flex h-full w-60 flex-col border-r border-border bg-surface p-4 transition-transform ${
             mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -231,6 +251,14 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
+          <button
+            className="mt-auto flex min-h-touch w-full items-center gap-3 rounded-md px-3 py-2 text-foreground/60 transition hover:bg-background hover:text-foreground"
+            onClick={() => void handleSignOut()}
+            aria-label="Sign out"
+          >
+            <span aria-hidden>\u238b</span>
+            <span>Sign out</span>
+          </button>
         </aside>
 
         {/* Mobile bottom sheet panel */}
