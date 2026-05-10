@@ -43,17 +43,42 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 bg-[color:var(--nova-void)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_900px_700px_at_50%_40%,rgba(0,245,255,0.05)_0%,rgba(155,92,246,0.04)_45%,transparent_100%)]" />
-      <div className="scanline-overlay pointer-events-none absolute inset-0 opacity-[0.18]" />
+    <section
+      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4"
+      style={{
+        background: [
+          'radial-gradient(ellipse 120% 80% at 20% 10%, rgba(0,30,60,0.95) 0%, transparent 60%)',
+          'radial-gradient(ellipse 80% 60% at 80% 90%, rgba(10,20,50,0.9) 0%, transparent 55%)',
+          'radial-gradient(ellipse 600px 500px at 50% 40%, rgba(0,245,255,0.07) 0%, rgba(155,92,246,0.05) 45%, transparent 70%)',
+          'linear-gradient(135deg, #060a12 0%, #0a0f1e 40%, #070d1a 70%, #04080f 100%)',
+        ].join(', '),
+      }}
+    >
+      {/* Star field */}
+      <div className="pointer-events-none absolute inset-0" style={{
+        backgroundImage: [
+          'radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,0.35) 0%, transparent 100%)',
+          'radial-gradient(1px 1px at 72% 18%, rgba(255,255,255,0.25) 0%, transparent 100%)',
+          'radial-gradient(1.5px 1.5px at 38% 72%, rgba(0,245,255,0.4) 0%, transparent 100%)',
+          'radial-gradient(1px 1px at 88% 55%, rgba(255,255,255,0.2) 0%, transparent 100%)',
+          'radial-gradient(1px 1px at 55% 88%, rgba(255,255,255,0.15) 0%, transparent 100%)',
+          'radial-gradient(1px 1px at 5% 62%, rgba(255,255,255,0.2) 0%, transparent 100%)',
+          'radial-gradient(1.5px 1.5px at 92% 8%, rgba(155,92,246,0.45) 0%, transparent 100%)',
+          'radial-gradient(1px 1px at 28% 45%, rgba(255,255,255,0.18) 0%, transparent 100%)',
+        ].join(', '),
+      }} />
+      {/* Scanline */}
+      <div className="scanline-overlay pointer-events-none absolute inset-0 opacity-[0.12]" />
+      {/* Horizon glow */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1px]" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,245,255,0.15), transparent)' }} />
 
       <div className="relative w-full max-w-[420px]">
         <div className="mb-8 text-center">
-          <p className="text-display text-[30px] tracking-[0.25em] text-white [text-shadow:0_0_20px_rgba(0,245,255,0.3)]">N.O.V.A</p>
+          <p className="text-display text-[30px] tracking-[0.25em] text-white [text-shadow:0_0_30px_rgba(0,245,255,0.4),0_0_60px_rgba(0,245,255,0.15)]">N.O.V.A</p>
           <p className="text-mono-ui mt-1 text-[9px] uppercase tracking-[0.18em] text-[color:var(--nova-text-faint)]">Neural Operative Virtual Assistant</p>
         </div>
 
-        <div className="rounded-[14px] border border-[color:var(--nova-border)] bg-[color:var(--nova-panel)] shadow-[0_0_80px_rgba(0,0,0,0.6),0_0_40px_rgba(0,245,255,0.04)] [border-top:1px_solid_rgba(0,245,255,0.18)]">
+        <div className="rounded-[14px] border border-[color:var(--nova-border)] bg-[rgba(10,15,28,0.85)] shadow-[0_0_100px_rgba(0,0,0,0.8),0_0_40px_rgba(0,245,255,0.06)] [border-top:1px_solid_rgba(0,245,255,0.2)] backdrop-blur-[24px]">
           <div className="flex border-b border-[color:var(--nova-border)]">
             {(['signin', 'register'] as Tab[]).map((t) => (
               <button
@@ -120,7 +145,7 @@ export default function LoginPage() {
 
           <div className="border-t border-[color:var(--nova-border)] px-8 py-4">
             <p className="text-mono-ui text-center text-[9px] uppercase tracking-[0.14em] text-[color:var(--nova-text-faint)]">
-              N.O.V.A OS v2.0 &middot; Secure Channel &middot; End-to-end encrypted
+              N.O.V.A OS v2.0 · Secure Channel · End-to-end encrypted
             </p>
           </div>
         </div>
