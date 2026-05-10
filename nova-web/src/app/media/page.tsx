@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import NextImage from 'next/image';
 import { Badge, Button, Card, CardBody, CardHeader } from '@/components/ui';
 
 type MediaItem = { id: string; name: string; type: 'image' | 'audio' | 'doc'; size: string; added: string; url?: string };
@@ -88,10 +89,12 @@ export default function MediaPage() {
               </div>
             </CardHeader>
             <CardBody className="space-y-3">
-              {preview.type === 'image' && preview.url
-                ? <img src={preview.url} alt={preview.name} className="w-full rounded-md object-contain" />
-                : <div className="flex h-32 items-center justify-center text-5xl">{TYPE_ICON[preview.type]}</div>
-              }
+              {preview.type === 'image' && preview.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview.url} alt={preview.name} className="w-full rounded-md object-contain" />
+              ) : (
+                <div className="flex h-32 items-center justify-center text-5xl">{TYPE_ICON[preview.type]}</div>
+              )}
               {preview.type === 'audio' && preview.url && (
                 <audio controls src={preview.url} className="w-full" />
               )}

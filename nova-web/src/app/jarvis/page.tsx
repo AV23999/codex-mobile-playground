@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Avatar, Button, Card, CardBody, Input } from '@/components/ui';
+import { Avatar, Button, Input } from '@/components/ui';
 
 type Role = 'user' | 'assistant';
 type Msg = { id: string; role: Role; text: string; ts: string };

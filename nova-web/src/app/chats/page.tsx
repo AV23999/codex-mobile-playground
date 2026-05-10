@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, Badge, Button, Card, CardBody, CardHeader, Input } from '@/components/ui';
 
 type Msg = { id: string; from: 'me' | 'them'; text: string; ts: string };
@@ -43,8 +43,8 @@ export default function ChatsPage() {
   const [replying, setReplying] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const active = contacts.find(c => c.id === activeId)!;
-  const msgs = threads[activeId] ?? [];
+  const active = useMemo(() => contacts.find(c => c.id === activeId)!, [contacts, activeId]);
+  const msgs = useMemo(() => threads[activeId] ?? [], [threads, activeId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, activeId]);
 
