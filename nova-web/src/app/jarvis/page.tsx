@@ -16,7 +16,7 @@ const seedMessages: ChatMessage[] = [
   {
     id: 'm1',
     role: 'assistant',
-    text: 'Welcome back. I have your workspace context loaded and ready for today’s tasks.',
+    text: 'Welcome back. I have your workspace context loaded and ready for today\'s tasks.',
     timestamp: '09:41',
   },
   {
@@ -39,15 +39,16 @@ const nowTime = () =>
 export default function JarvisPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(seedMessages);
   const [value, setValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const canSend = useMemo(() => value.trim().length > 0, [value]);
+  const canSend = useMemo(() => value.trim().length > 0 && !isLoading, [value, isLoading]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     const content = value.trim();
     if (!content) return;
 
@@ -58,15 +59,42 @@ export default function JarvisPage() {
       timestamp: nowTime(),
     };
 
-    const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      text: 'Acknowledged. I will keep this queued in active context and continue guiding your next implementation steps.',
-      timestamp: nowTime(),
-    };
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setValue('');
+    setIsLoading(true);
+
+    try {
+      const res = await fetch('/api/jarvis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: content }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        text: data.reply,
+        timestamp: nowTime(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        text: 'I seem to be having trouble connecting right now. Please check your API key or try again.',
+        timestamp: nowTime(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -111,6 +139,19 @@ export default function JarvisPage() {
               </div>
             );
           })}
+
+          {/* Typing indicator */}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="flex max-w-3xl items-end gap-2 flex-row">
+                <Avatar name="Jarvis" status="online" size="sm" />
+                <article className="rounded-lg px-4 py-3 border border-border bg-surface text-foreground">
+                  <p className="text-sm leading-relaxed text-foreground/50 italic">Jarvis is thinking...</p>
+                </article>
+              </div>
+            </div>
+          )}
+
           <div ref={listEndRef} />
         </div>
       </div>
@@ -134,7 +175,7 @@ export default function JarvisPage() {
               onClick={sendMessage}
               disabled={!canSend}
             >
-              Send
+              {isLoading ? 'Sending...' : 'Send'}
             </Button>
           }
         />
